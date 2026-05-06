@@ -826,6 +826,30 @@ def test_start_capture_prep_helpers(tmp_path):
         assert call['log_path'] == log_path
         call['after_update_timer']()
         assert ('after', 500, 'update_timer') in events
+
+        start_begin_calls = []
+        warning_writes = []
+
+        class StartWriter:
+            def write(self, text):
+                warning_writes.append(text)
+
+        start_log_path = tmp_path / 'start-run-log.txt'
+        start_log_path.write_text('', encoding='utf-8')
+        app.capture_context.set_log_writer(StartWriter())
+        module.capture_helpers.prepare_capture_session = lambda **kwargs: start_log_path
+        module.capture_helpers.begin_capture_run = lambda **kwargs: start_begin_calls.append(kwargs) or DummyThread(target=kwargs['worker_capture'], daemon=True)
+        module.disk_free_status = lambda path: {
+            'disk_free_bytes': 50 * 1024 * 1024,
+            'disk_free_mb': 50.0,
+            'disk_low_space': True,
+            'disk_free_warning_text': '磁盘剩余空间不足：50.0 MB',
+        }
+        app.preview_proc = None
+        app.proc = None
+        app.start_capture()
+        assert start_begin_calls, 'start_capture should continue in soft-warning mode'
+        assert any('[warning] 磁盘剩余空间不足：50.0 MB' in text for text in warning_writes)
     finally:
         module.LimitedLogWriter = original_writer
         module.threading.Thread = original_thread

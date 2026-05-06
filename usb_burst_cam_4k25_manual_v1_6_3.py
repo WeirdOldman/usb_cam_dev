@@ -24,6 +24,7 @@ from usb_cam_finalize import finalize_capture_done_state
 from usb_cam_session_finalize import finalize_session
 from usb_cam_capture_state import CaptureState
 from usb_cam_capture_context import CaptureContext
+from usb_cam_stats import disk_free_status
 import usb_cam_capture_helpers as capture_helpers
 import usb_cam_preview_helpers as preview_helpers
 import usb_cam_queue_helpers as queue_helpers
@@ -432,6 +433,12 @@ class App(tk.Tk):
             self.stop_preview(wait=True)
         mode_prefix = "direct_frames_mjpeg_4k" if self.mode_var.get() == "direct_frames" else "video_then_frames_mjpeg_4k"
         log_path = self.prepare_capture_session(ffmpeg, mode_prefix)
+        if self.capture_context.current_session is not None:
+            disk_status = disk_free_status(self.capture_context.current_session)
+            if disk_status.get('disk_low_space') and disk_status.get('disk_free_warning_text'):
+                self.status_var.set(disk_status['disk_free_warning_text'])
+                if self.capture_context.log_writer:
+                    self.capture_context.log_writer.write(f"\n[warning] {disk_status['disk_free_warning_text']}\n")
         self.begin_capture_run(log_path)
 
     def build_direct_cmd(self, ffmpeg: str):
