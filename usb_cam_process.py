@@ -1,0 +1,66 @@
+from __future__ import annotations
+
+import re
+import subprocess
+from typing import Callable
+
+
+def parse_ffmpeg_progress_line(line: str, fps: int) -> int | None:
+    m = re.search(r"frame=\s*(\d+)", line)
+    if not m:
+        m = re.search(r"frame=?(\d+)", line)
+    if m:
+        try:
+            return int(m.group(1))
+        except ValueError:
+            return None
+    m = re.search(r"out_time_ms=?(\d+)", line)
+    if m:
+        try:
+            us = int(m.group(1))
+            return int((us / 1000000.0) * fps + 0.5)
+        except ValueError:
+            return None
+    return None
+
+
+def run_ffmpeg_process(
+    cmd: list[str],
+    fps: int,
+    log_write: Callable[[str], None] | None = None,
+    frame_callback: Callable[[int], None] | None = None,
+) -> tuple[subprocess.Popen, int]:
+    proc = subprocess.Popen(
+        cmd,
+        stdin=subprocess.PIPE,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+        bufsize=1,
+    )
+    assert proc.stdout is not None
+    last_frame = 0
+    for line in proc.stdout:
+        if log_write:
+            log_write(line)
+        parsed = parse_ffmpeg_progress_line(line, fps)
+        if parsed is not None:
+            last_frame = max(last_frame, parsed)
+            if frame_callback:
+                frame_callback(last_frame)
+    code = proc.wait()
+    return proc, code
+
+
+def request_stop_process(proc: subprocess.Popen):
+    try:
+        if proc.stdin:
+            proc.stdin.write("q\n")
+            proc.stdin.flush()
+    except Exception:
+        try:
+            proc.terminate()
+        except Exception:
+            pass
