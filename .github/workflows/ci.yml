@@ -11,7 +11,7 @@ jobs:
     name: Test (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
     strategy:
-      fail-fast: true
+      fail-fast: false
       matrix:
         os:
           - ubuntu-latest
@@ -35,4 +35,4 @@ jobs:
         run: python -m py_compile usb_burst_cam_4k25_manual_v1_6_3.py usb_cam_capture_helpers.py usb_cam_preview_helpers.py usb_cam_queue_helpers.py usb_cam_capture_state.py usb_cam_capture_context.py usb_cam_ui_state.py usb_cam_finalize.py usb_cam_session_finalize.py usb_cam_runtime.py usb_cam_process.py usb_cam_capture.py usb_cam_preview.py usb_cam_ffmpeg.py usb_cam_stats.py usb_cam_session_writer.py usb_cam_paths.py test_usb_cam_refactor.py
 
       - name: Run tests
-        run: pytest -q test_usb_cam_refactor.py || pytest -vv -x test_usb_cam_refactor.py
+        run: pytest -q test_usb_cam_refactor.py
