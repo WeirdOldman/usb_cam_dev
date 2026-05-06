@@ -124,13 +124,21 @@ def apply_capture_metrics(elapsed_var, frame_count_var, used_size_var, estimate_
     capture_fps_var.set(metrics['capture_fps_text'])
 
 
-def update_capture_timer_tick(*, capture_state, capture_context, now: float, fps: int, update_capture_metrics_fn):
+def update_capture_timer_tick(*, capture_state, capture_context, now: float, fps: int, update_capture_metrics_fn, log_writer=None):
     snapshot = capture_state.snapshot_for_metrics(
         current_frames_dir=capture_context.current_frames_dir,
         current_session=capture_context.current_session,
     )
     metrics = update_capture_metrics_fn(snapshot, now=now, fps=fps)
     capture_state.apply_metrics_snapshot(snapshot)
+    if (
+        metrics.get('disk_low_space')
+        and metrics.get('disk_free_warning_text')
+        and not capture_state.disk_warning_logged
+    ):
+        if log_writer:
+            log_writer.write(f"\n[warning] {metrics['disk_free_warning_text']}\n")
+        capture_state.disk_warning_logged = True
     return metrics
 
 

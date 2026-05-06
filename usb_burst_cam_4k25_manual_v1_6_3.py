@@ -572,6 +572,7 @@ class App(tk.Tk):
                 now=now,
                 fps=FPS,
                 update_capture_metrics_fn=update_capture_metrics,
+                log_writer=self.capture_context.log_writer,
             )
             self.apply_capture_metrics(metrics)
             self.after(500, self.update_timer)

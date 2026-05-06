@@ -18,6 +18,7 @@ class CaptureState:
     last_fps_sample_time: float = 0.0
     last_fps_sample_count: int = 0
     instant_fps: float = 0.0
+    disk_warning_logged: bool = False
 
     def reset_for_capture(self) -> None:
         self.last_ffmpeg_frame = 0
@@ -30,6 +31,7 @@ class CaptureState:
         self.last_fps_sample_time = self.start_time
         self.last_fps_sample_count = 0
         self.instant_fps = 0.0
+        self.disk_warning_logged = False
 
     def snapshot_for_metrics(self, *, current_frames_dir: Path | None, current_session: Path | None) -> dict:
         return {

@@ -292,6 +292,7 @@ def test_capture_state_reset_and_snapshot_helpers(tmp_path):
         last_fps_sample_time=6.0,
         last_fps_sample_count=5,
         instant_fps=4.5,
+        disk_warning_logged=True,
     )
 
     state.reset_for_capture()
@@ -305,6 +306,7 @@ def test_capture_state_reset_and_snapshot_helpers(tmp_path):
     assert state.last_fps_sample_time == 12.5
     assert state.last_fps_sample_count == 0
     assert state.instant_fps == 0.0
+    assert state.disk_warning_logged is False
 
     frames_dir = tmp_path / 'frames'
     session_dir = tmp_path / 'session'
@@ -429,7 +431,7 @@ def test_ui_state_metrics_and_message_dispatch():
     assert action == ('preview_status', 'hello world')
 
 
-def test_ui_state_covers_scan_branches_and_remaining_actions(tmp_path):
+def test_ui_state_covers_scan_branches_and_remaining_actions(tmp_path, monkeypatch):
     import usb_cam_ui_state
 
     session_dir = tmp_path / 'session'
@@ -437,6 +439,13 @@ def test_ui_state_covers_scan_branches_and_remaining_actions(tmp_path):
     frames_dir.mkdir(parents=True)
     (frames_dir / 'img_000001.jpg').write_bytes(b'1234')
     (session_dir / 'run_log.txt').write_bytes(b'12')
+
+    monkeypatch.setattr(usb_cam_ui_state, 'disk_free_status', lambda path: {
+        'disk_free_bytes': 50 * 1024 * 1024,
+        'disk_free_mb': 50.0,
+        'disk_low_space': True,
+        'disk_free_warning_text': '磁盘剩余空间不足：50.0 MB',
+    })
 
     state = {
         'start_time': 0.0,
@@ -461,6 +470,9 @@ def test_ui_state_covers_scan_branches_and_remaining_actions(tmp_path):
     assert metrics['used_size_text'] == '0.0 MB'
     assert 'MB/分钟' in metrics['estimate_text']
     assert metrics['capture_fps_text'].endswith('fps')
+    assert metrics['disk_low_space'] is True
+    assert metrics['disk_free_mb'] == 50.0
+    assert metrics['disk_free_warning_text'] == '磁盘剩余空间不足：50.0 MB'
 
     idle_state = dict(state)
     idle_state.update({
@@ -476,6 +488,8 @@ def test_ui_state_covers_scan_branches_and_remaining_actions(tmp_path):
     idle_metrics = usb_cam_ui_state.update_capture_metrics(idle_state, now=1.0, fps=25)
     assert idle_metrics['estimate_text'] == '约 0 MB/分钟'
     assert idle_metrics['capture_fps_text'] == '-- fps'
+    assert idle_metrics['disk_low_space'] is False
+    assert idle_metrics['disk_free_warning_text'] == ''
 
     recording_state = dict(idle_state)
     recording_state['cached_session_size'] = 10
@@ -1178,6 +1192,121 @@ def test_capture_execution_and_finalize_helpers(tmp_path):
     finally:
         module.capture_helpers.run_capture_pipeline = original_run_capture_pipeline
         module.finalize_session = original_finalize_session
+
+
+def test_finalize_session_records_summary_write_error_and_returns_result(tmp_path, monkeypatch):
+    import usb_cam_session_finalize as module
+
+    session = tmp_path / 'session'
+    frames = session / 'frames'
+    frames.mkdir(parents=True)
+    frame = frames / 'img_000001.jpg'
+    frame.write_bytes(b'frame-bytes')
+
+    meta = {
+        'input': {'fps': 25},
+        'commands': [],
+        'ffmpeg': 'ffmpeg.exe',
+    }
+
+    csv_path = session / 'frames.csv'
+    metadata_path = session / 'metadata.json'
+
+    monkeypatch.setattr(module, 'write_frames_csv', lambda current_session, current_frames_dir: (csv_path, [frame]))
+    monkeypatch.setattr(module, 'frame_metrics', lambda **kwargs: {
+        'frame_count': kwargs['frame_count'],
+        'capture_duration_sec': kwargs['capture_duration'],
+        'total_process_sec': kwargs['total_process'],
+        'total_size_bytes': kwargs['total_size'],
+    })
+    monkeypatch.setattr(module, 'folder_size', lambda _session: 4321)
+    monkeypatch.setattr(module, 'bytes_to_mb', lambda size: round(size / 1024 / 1024, 4))
+    monkeypatch.setattr(module.time, 'time', lambda: 110.0)
+
+    metadata_calls = []
+    def fake_write_metadata(current_session, current_meta):
+        metadata_calls.append(dict(current_meta))
+        return metadata_path
+
+    monkeypatch.setattr(module, 'write_metadata', fake_write_metadata)
+    monkeypatch.setattr(module, 'write_summary', lambda current_session, current_meta: (_ for _ in ()).throw(OSError('disk full while writing summary')))
+
+    result = module.finalize_session(
+        current_session=session,
+        current_frames_dir=frames,
+        current_meta=meta,
+        start_time=100.0,
+    )
+
+    assert result['csv_path'] == csv_path
+    assert result['meta_path'] == metadata_path
+    assert result['summary_path'] is None
+    assert result['frame_count'] == 1
+    assert result['current_meta']['session_total_size_bytes'] == 4321
+    assert result['current_meta']['finalize_errors'] == ['summary_write: disk full while writing summary']
+    assert len(metadata_calls) >= 2
+    assert metadata_calls[-1]['finalize_errors'] == ['summary_write: disk full while writing summary']
+
+
+def test_update_capture_timer_tick_logs_disk_warning_once():
+    import usb_cam_capture_helpers as module
+    import usb_cam_capture_state
+    import usb_cam_capture_context
+
+    class DummyWriter:
+        def __init__(self):
+            self.writes = []
+
+        def write(self, text):
+            self.writes.append(text)
+
+    capture_state = usb_cam_capture_state.CaptureState()
+    capture_context = usb_cam_capture_context.CaptureContext()
+    writer = DummyWriter()
+    metrics = {
+        'elapsed_text': '00:00:01',
+        'display_count': 1,
+        'used_size_text': '0.0 MB',
+        'estimate_text': '约 0 MB/分钟',
+        'capture_fps_text': '1.00 fps',
+        'cached_frame_count': 0,
+        'cached_frame_total_size': 0,
+        'cached_session_size': 0,
+        'disk_free_bytes': 50,
+        'disk_free_mb': 50.0,
+        'disk_low_space': True,
+        'disk_free_warning_text': '磁盘剩余空间不足：50.0 MB',
+    }
+
+    seen = []
+
+    def fake_update(snapshot, now, fps):
+        seen.append((snapshot, now, fps))
+        return dict(metrics)
+
+    first = module.update_capture_timer_tick(
+        capture_state=capture_state,
+        capture_context=capture_context,
+        now=1.0,
+        fps=25,
+        update_capture_metrics_fn=fake_update,
+        log_writer=writer,
+    )
+    second = module.update_capture_timer_tick(
+        capture_state=capture_state,
+        capture_context=capture_context,
+        now=2.0,
+        fps=25,
+        update_capture_metrics_fn=fake_update,
+        log_writer=writer,
+    )
+
+    assert first['disk_low_space'] is True
+    assert second['disk_low_space'] is True
+    assert capture_state.disk_warning_logged is True
+    assert len(writer.writes) == 1
+    assert '[warning] 磁盘剩余空间不足：50.0 MB' in writer.writes[0]
+    assert len(seen) == 2
 
 
 def test_process_queue_dispatch_helpers():

@@ -24,13 +24,37 @@ def finalize_session(*, current_session: Path, current_frames_dir: Path, current
             total_size=total_size,
         ),
     })
-    write_metadata(current_session, current_meta)
-    write_summary(current_session, current_meta)
+
+    finalize_errors = []
+    current_meta['finalize_errors'] = finalize_errors
+
+    meta_path = None
+    try:
+        meta_path = write_metadata(current_session, current_meta)
+    except Exception as exc:
+        finalize_errors.append(f'metadata_write_initial: {exc}')
+
+    summary_path = None
+    try:
+        summary_path = write_summary(current_session, current_meta)
+    except Exception as exc:
+        finalize_errors.append(f'summary_write: {exc}')
+
     session_total = folder_size(current_session)
     current_meta['session_total_size_bytes'] = session_total
     current_meta['session_total_size_mb'] = bytes_to_mb(session_total)
-    meta_path = write_metadata(current_session, current_meta)
-    summary_path = write_summary(current_session, current_meta)
+
+    try:
+        meta_path = write_metadata(current_session, current_meta)
+    except Exception as exc:
+        finalize_errors.append(f'metadata_write_final: {exc}')
+
+    if summary_path is None:
+        try:
+            summary_path = write_summary(current_session, current_meta)
+        except Exception:
+            pass
+
     return {
         'csv_path': csv_path,
         'meta_path': meta_path,

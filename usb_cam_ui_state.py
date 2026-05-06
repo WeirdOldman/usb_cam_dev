@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from usb_cam_stats import bytes_to_mb, folder_size
+from usb_cam_stats import bytes_to_mb, disk_free_status, folder_size
 from usb_cam_session_writer import count_frame_files
 
 
@@ -41,6 +41,15 @@ def update_capture_metrics(state, now: float, fps: int):
         state['last_fps_sample_time'] = now
         state['last_fps_sample_count'] = display_count
 
+    disk_status = {
+        'disk_free_bytes': 0,
+        'disk_free_mb': 0.0,
+        'disk_low_space': False,
+        'disk_free_warning_text': '',
+    }
+    if state['current_session'] and state['current_session'].exists():
+        disk_status = disk_free_status(state['current_session'])
+
     return {
         'elapsed_text': f"{h:02d}:{m:02d}:{s:02d}",
         'display_count': display_count,
@@ -50,6 +59,7 @@ def update_capture_metrics(state, now: float, fps: int):
         'cached_frame_count': state['cached_frame_count'],
         'cached_frame_total_size': state['cached_frame_total_size'],
         'cached_session_size': state['cached_session_size'],
+        **disk_status,
     }
 
 
