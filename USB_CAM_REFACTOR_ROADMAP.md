@@ -424,6 +424,7 @@ PySide6 + Python backend + PyInstaller --onedir + Inno Setup
 - 后端零重写或极少重写
 - UI 迁移不破坏采集主链路
 - 打包与发布可延续之前流程
+- 详细对比文档见：`docs/USB_CAM_UI_FUTURE_OPTIONS_PYSIDE6_VS_CSHARP.md`
 
 ---
 
@@ -461,6 +462,7 @@ PySide6 + Python backend + PyInstaller --onedir + Inno Setup
 - 有明确的不迁移成本 vs 迁移成本对比
 - 有 UI 技术栈与媒体链路选择说明
 - 有与现有 Python 版并行或替换策略
+- 详细对比文档见：`docs/USB_CAM_UI_FUTURE_OPTIONS_PYSIDE6_VS_CSHARP.md`
 
 ---
 
