@@ -782,6 +782,7 @@ def test_start_capture_prep_helpers(tmp_path):
     original_writer = module.LimitedLogWriter
     original_thread = module.threading.Thread
     original_time = module.time.time
+    original_find_ffmpeg = module.find_ffmpeg
     original_prepare_capture_session = module.capture_helpers.prepare_capture_session
     original_begin_capture_run = module.capture_helpers.begin_capture_run
     original_disk_free_status = module.disk_free_status
@@ -796,6 +797,7 @@ def test_start_capture_prep_helpers(tmp_path):
     module.LimitedLogWriter = DummyWriter
     module.threading.Thread = DummyThread
     module.time.time = lambda: 123.456
+    module.find_ffmpeg = lambda: 'ffmpeg.exe'
     try:
         app.reset_capture_display()
         assert app.frame_count_var.get() == '0'
@@ -855,6 +857,7 @@ def test_start_capture_prep_helpers(tmp_path):
         module.LimitedLogWriter = original_writer
         module.threading.Thread = original_thread
         module.time.time = original_time
+        module.find_ffmpeg = original_find_ffmpeg
         module.capture_helpers.prepare_capture_session = original_prepare_capture_session
         module.capture_helpers.begin_capture_run = original_begin_capture_run
         module.disk_free_status = original_disk_free_status
