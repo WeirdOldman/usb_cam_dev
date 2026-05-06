@@ -784,6 +784,7 @@ def test_start_capture_prep_helpers(tmp_path):
     original_time = module.time.time
     original_prepare_capture_session = module.capture_helpers.prepare_capture_session
     original_begin_capture_run = module.capture_helpers.begin_capture_run
+    original_disk_free_status = module.disk_free_status
     writer_events = []
 
     class DummyWriter:
@@ -856,6 +857,7 @@ def test_start_capture_prep_helpers(tmp_path):
         module.time.time = original_time
         module.capture_helpers.prepare_capture_session = original_prepare_capture_session
         module.capture_helpers.begin_capture_run = original_begin_capture_run
+        module.disk_free_status = original_disk_free_status
 
 
 def test_preview_ui_apply_helpers():
