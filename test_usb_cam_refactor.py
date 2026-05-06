@@ -3,7 +3,7 @@ from __future__ import annotations
 import importlib.util
 from pathlib import Path
 
-TARGET = Path('/root/.hermes/workspace/shared_space/usb_cam_dev/usb_burst_cam_4k25_manual_v1_6_3.py')
+TARGET = Path(__file__).resolve().parent / 'usb_burst_cam_4k25_manual_v1_6_3.py'
 
 
 def load_module():
