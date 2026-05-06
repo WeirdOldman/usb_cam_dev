@@ -201,7 +201,7 @@ def test_capture_helper_branches_and_fallback_extract_args():
     )
     assert extract_q2 == [
         'ffmpeg.exe', '-y', '-hide_banner', '-stats_period', '0.5', '-progress', 'pipe:1',
-        '-i', 'video.avi', '-map', '0:v:0', '-q:v', '2', 'out/img_%06d.jpg'
+        '-i', 'video.avi', '-map', '0:v:0', '-q:v', '2', str(Path('out') / 'img_%06d.jpg')
     ]
 
 
