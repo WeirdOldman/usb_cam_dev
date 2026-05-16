@@ -28,15 +28,15 @@ if not exist "%ENTRY_SCRIPT%" (
 )
 
 set "PY_CMD="
-where py >nul 2>nul
+where python >nul 2>nul
 if not errorlevel 1 (
-  set "PY_CMD=py -3"
+  set "PY_CMD=python"
 )
 
 if not defined PY_CMD (
-  where python >nul 2>nul
+  where py >nul 2>nul
   if not errorlevel 1 (
-    set "PY_CMD=python"
+    set "PY_CMD=py -3"
   )
 )
 
