@@ -1,0 +1,114 @@
+name: Build Windows Package
+
+'on':
+  workflow_dispatch:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  build-windows-package:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install build and test dependencies
+        shell: pwsh
+        run: |
+          python -m pip install --upgrade pip
+          pip install pytest pyinstaller
+
+      - name: Verify imports and syntax
+        shell: pwsh
+        run: |
+          python -m py_compile `
+            usb_burst_cam_4k25_manual_v1_6_3.py `
+            usb_cam_capture_helpers.py `
+            usb_cam_preview_helpers.py `
+            usb_cam_queue_helpers.py `
+            usb_cam_capture_state.py `
+            usb_cam_capture_context.py `
+            usb_cam_ui_state.py `
+            usb_cam_finalize.py `
+            usb_cam_session_finalize.py `
+            usb_cam_runtime.py `
+            usb_cam_process.py `
+            usb_cam_capture.py `
+            usb_cam_preview.py `
+            usb_cam_ffmpeg.py `
+            usb_cam_stats.py `
+            usb_cam_session_writer.py `
+            usb_cam_paths.py `
+            test_usb_cam_refactor.py
+
+      - name: Run tests
+        shell: pwsh
+        run: pytest -q test_usb_cam_refactor.py
+
+      - name: Build Windows package
+        shell: cmd
+        run: build.bat
+
+      - name: Download portable FFmpeg
+        shell: pwsh
+        run: |
+          $ffmpegUrl = 'https://www.gyan.dev/ffmpeg/builds/ffmpeg-release-essentials.zip'
+          $zipPath = Join-Path $env:RUNNER_TEMP 'ffmpeg.zip'
+          $extractDir = Join-Path $env:RUNNER_TEMP 'ffmpeg'
+          Invoke-WebRequest -Uri $ffmpegUrl -OutFile $zipPath
+          Expand-Archive -Path $zipPath -DestinationPath $extractDir -Force
+          $ffmpegExe = Get-ChildItem -Path $extractDir -Recurse -Filter ffmpeg.exe | Select-Object -First 1
+          if (-not $ffmpegExe) {
+            throw 'ffmpeg.exe not found in downloaded archive'
+          }
+          $targetDir = 'dist/USB_Cam_4K25/tools'
+          New-Item -ItemType Directory -Force -Path $targetDir | Out-Null
+          Copy-Item $ffmpegExe.FullName (Join-Path $targetDir 'ffmpeg.exe') -Force
+
+      - name: Create distributable zip
+        shell: pwsh
+        run: |
+          $zipPath = 'dist/USB_Cam_4K25-win64.zip'
+          if (Test-Path $zipPath) {
+            Remove-Item $zipPath -Force
+          }
+          Compress-Archive -Path 'dist/USB_Cam_4K25/*' -DestinationPath $zipPath -Force
+
+      - name: Verify packaged outputs
+        shell: pwsh
+        run: |
+          if (-not (Test-Path 'dist/USB_Cam_4K25/USB_Cam_4K25.exe')) {
+            throw 'Expected EXE not found: dist/USB_Cam_4K25/USB_Cam_4K25.exe'
+          }
+          if (-not (Test-Path 'dist/USB_Cam_4K25/tools/ffmpeg.exe')) {
+            throw 'Expected FFmpeg not found: dist/USB_Cam_4K25/tools/ffmpeg.exe'
+          }
+          if (-not (Test-Path 'dist/USB_Cam_4K25-win64.zip')) {
+            throw 'Expected zip not found: dist/USB_Cam_4K25-win64.zip'
+          }
+
+      - name: Upload package artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: USB_Cam_4K25-win64
+          path: |
+            dist/USB_Cam_4K25-win64.zip
+            dist/USB_Cam_4K25/**
+          if-no-files-found: error
+
+      - name: Publish GitHub Release assets
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            dist/USB_Cam_4K25-win64.zip
