@@ -276,6 +276,68 @@ def test_process_helpers_cover_stop_and_callback_paths(monkeypatch):
     assert fail_proc.terminated is True
 
 
+def test_process_helpers_hide_console_window_on_windows(monkeypatch):
+    import usb_cam_process
+
+    events = {}
+
+    class FakeProc:
+        def __init__(self):
+            self.stdin = None
+            self.stdout = iter([])
+
+        def wait(self):
+            return 0
+
+    monkeypatch.setattr('os.name', 'nt')
+    monkeypatch.setattr(usb_cam_process.subprocess, 'STARTUPINFO', lambda: type('StartupInfo', (), {'dwFlags': 0, 'wShowWindow': 0})())
+    monkeypatch.setattr(usb_cam_process.subprocess, 'STARTF_USESHOWWINDOW', 1)
+    monkeypatch.setattr(usb_cam_process.subprocess, 'SW_HIDE', 0)
+    monkeypatch.setattr(usb_cam_process.subprocess, 'CREATE_NO_WINDOW', 0x08000000)
+
+    def fake_popen(*args, **kwargs):
+        events['kwargs'] = kwargs
+        return FakeProc()
+
+    monkeypatch.setattr(usb_cam_process.subprocess, 'Popen', fake_popen)
+
+    proc, code = usb_cam_process.run_ffmpeg_process(['ffmpeg.exe'], fps=25)
+
+    assert proc.wait() == 0
+    assert code == 0
+    assert events['kwargs']['creationflags'] == 0x08000000
+    assert events['kwargs']['startupinfo'].dwFlags & 1
+    assert events['kwargs']['startupinfo'].wShowWindow == 0
+
+
+def test_preview_process_hides_console_window_on_windows(monkeypatch):
+    import usb_cam_preview
+
+    events = {}
+
+    class FakeProc:
+        pass
+
+    monkeypatch.setattr('os.name', 'nt')
+    monkeypatch.setattr(usb_cam_preview.subprocess, 'STARTUPINFO', lambda: type('StartupInfo', (), {'dwFlags': 0, 'wShowWindow': 0})())
+    monkeypatch.setattr(usb_cam_preview.subprocess, 'STARTF_USESHOWWINDOW', 1)
+    monkeypatch.setattr(usb_cam_preview.subprocess, 'SW_HIDE', 0)
+    monkeypatch.setattr(usb_cam_preview.subprocess, 'CREATE_NO_WINDOW', 0x08000000)
+
+    def fake_popen(*args, **kwargs):
+        events['kwargs'] = kwargs
+        return FakeProc()
+
+    monkeypatch.setattr(usb_cam_preview.subprocess, 'Popen', fake_popen)
+
+    proc = usb_cam_preview.start_preview_process('ffmpeg.exe', ['ffmpeg.exe'])
+
+    assert isinstance(proc, FakeProc)
+    assert events['kwargs']['creationflags'] == 0x08000000
+    assert events['kwargs']['startupinfo'].dwFlags & 1
+    assert events['kwargs']['startupinfo'].wShowWindow == 0
+
+
 def test_capture_state_reset_and_snapshot_helpers(tmp_path):
     import usb_cam_capture_state
 

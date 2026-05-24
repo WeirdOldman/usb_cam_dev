@@ -1,8 +1,22 @@
 from __future__ import annotations
 
+import os
 import re
 import subprocess
 from typing import Callable
+
+
+def windows_popen_kwargs() -> dict:
+    if os.name != "nt":
+        return {}
+
+    startupinfo = subprocess.STARTUPINFO()
+    startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
+    startupinfo.wShowWindow = subprocess.SW_HIDE
+    return {
+        "startupinfo": startupinfo,
+        "creationflags": subprocess.CREATE_NO_WINDOW,
+    }
 
 
 def parse_ffmpeg_progress_line(line: str, fps: int) -> int | None:
@@ -40,6 +54,7 @@ def run_ffmpeg_process(
         encoding="utf-8",
         errors="replace",
         bufsize=1,
+        **windows_popen_kwargs(),
     )
     if started_callback:
         started_callback(proc)

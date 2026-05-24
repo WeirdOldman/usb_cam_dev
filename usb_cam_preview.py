@@ -4,6 +4,7 @@ import subprocess
 import threading
 
 from usb_cam_ffmpeg import preview_cmd
+from usb_cam_process import windows_popen_kwargs
 
 PNG_SIG = b"\x89PNG\r\n\x1a\n"
 
@@ -51,7 +52,13 @@ def read_preview_frames(stdout, emit):
 
 
 def start_preview_process(ffmpeg: str, cmd: list[str]) -> subprocess.Popen:
-    return subprocess.Popen(cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    return subprocess.Popen(
+        cmd,
+        stdin=subprocess.PIPE,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        **windows_popen_kwargs(),
+    )
 
 
 def stop_preview_process(p: subprocess.Popen, wait: bool = False):

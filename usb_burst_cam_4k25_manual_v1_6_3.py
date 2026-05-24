@@ -85,7 +85,7 @@ class App(tk.Tk):
     def __init__(self):
         super().__init__()
         setup_console_encoding()
-        self.title(f"{APP_TITLE} - v1.6.3")
+        self.title(f"{APP_TITLE} - v1.6.4")
         sw = self.winfo_screenwidth()
         sh = self.winfo_screenheight()
         ww = min(960, max(760, sw - 80))
