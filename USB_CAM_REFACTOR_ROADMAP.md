@@ -272,7 +272,7 @@ usb_cam_app/
 
 **Objective:** 把“开发脚本工具”变成“可分发软件”。
 
-**当前状态：🟡 工程基线已稳定，Windows 真实录制验收待补**
+**当前状态：✅ Phase 4 已完成 packaged 录制闭环，进入稳定性增强阶段**
 
 当前已确认：
 
@@ -285,12 +285,12 @@ usb_cam_app/
   - 启动前磁盘空间软提示
   - 低磁盘空间 warning 接入状态/日志路径
   - 对应 CI 回归问题已修复
-- 当前**尚未进行真实 Windows 录制实验**
+- 已完成真实 Windows packaged 录制实验
 
 这意味着：
 
 - 打包层面已经通过“能出包、能启动、GUI 能起来、自动测试和双平台 CI 正常”这一层
-- 但还**不能宣称 Phase 4 验收闭环完成**
+- 可以表述为 **Phase 4 packaged 验收闭环已完成**
 - 当前仍缺少最关键的功能侧验证：
   - direct 模式录制
   - video_then_frames 模式录制
@@ -347,18 +347,17 @@ USB_Cam_4K25_Setup_vX.Y.Z.exe
 - 配置：`AppData/Roaming/...`
 - 日志：`AppData/Local/...` 或 session 内运行日志
 
-**Phase 4 当前最小结论：**
+**Phase 4 当前结论：**
 
 - 绿色版 EXE 已可打包并正常启动
 - FFmpeg 随包策略已明确为 `tools/ffmpeg.exe` 优先
-- 当前状态应表述为：**启动已验证，录制待实测**
+- 当前状态应表述为：**packaged 启动、预览、录制、停止、路径兼容与 5 分钟双模式稳定性验证已完成**
 
-**Phase 4 完整验收仍需补齐：**
+**Phase 4 核心闭环已完成，剩余项转为非阻塞质量检查：**
 
-- direct 模式最小录制验证
-- video_then_frames 模式最小录制验证
-- 停止流程验证
-- `frames.csv` / `summary.txt` / `metadata.json` / 图片输出检查
+- 只读 / 不可写输出目录 UX 复查
+- 更大范围人工操作员复核
+- 如产品策略要求，执行更长时间 soak
 
 **Phase 4 完整验收标准：**
 

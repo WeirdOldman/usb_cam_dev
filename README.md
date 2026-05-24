@@ -29,7 +29,7 @@ Windows USB 摄像头采集工具，当前技术路线固定为 **Tkinter + FFmp
 - 不做 PyInstaller onefile
 - 不扩展无关功能（多摄像头、复杂图表、网络控制等）
 
-如果要继续迭代，优先做稳定性、结构拆分、打包规范化和实机验证。
+如果要继续迭代，优先做稳定性增强、运行期护栏、长时间采集韧性和交付口径统一。
 
 ## 主要文件
 
@@ -57,6 +57,7 @@ Windows USB 摄像头采集工具，当前技术路线固定为 **Tkinter + FFmp
 
 - `USB_CAM_REFACTOR_STRUCTURE.md`
 - `USB_CAM_REFACTOR_ROADMAP.md`
+- `docs/USB_CAM_STABILITY_POLICY.md`
 
 ## 运行要求
 
@@ -94,9 +95,12 @@ python3 -m py_compile \
   usb_cam_stats.py \
   usb_cam_session_writer.py \
   usb_cam_paths.py \
-  test_usb_cam_refactor.py
+  usb_cam_stop_prefs.py \
+  usb_cam_real_validation.py \
+  test_usb_cam_refactor.py \
+  test_usb_cam_real_validation.py
 
-pytest -q test_usb_cam_refactor.py
+pytest -q test_usb_cam_refactor.py test_usb_cam_real_validation.py
 ```
 
 ## 打包
@@ -145,9 +149,9 @@ build.bat
 
 当前更适合继续做的是：
 
-1. README / 文档补齐
-2. Windows 实机验证
-3. 打包回归验证
+1. README / 文档口径统一
+2. 长时间采集稳定性增强
+3. 打包回归验证与后续 soak
 4. 后续 issue 化管理
 
 ## 开发原则
