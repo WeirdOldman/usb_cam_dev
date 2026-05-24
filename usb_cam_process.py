@@ -29,6 +29,7 @@ def run_ffmpeg_process(
     fps: int,
     log_write: Callable[[str], None] | None = None,
     frame_callback: Callable[[int], None] | None = None,
+    started_callback: Callable[[subprocess.Popen], None] | None = None,
 ) -> tuple[subprocess.Popen, int]:
     proc = subprocess.Popen(
         cmd,
@@ -40,6 +41,8 @@ def run_ffmpeg_process(
         errors="replace",
         bufsize=1,
     )
+    if started_callback:
+        started_callback(proc)
     assert proc.stdout is not None
     last_frame = 0
     for line in proc.stdout:

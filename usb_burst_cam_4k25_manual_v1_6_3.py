@@ -528,6 +528,7 @@ class App(tk.Tk):
             self.capture_context.log_writer,
             self.ui_queue,
             FPS,
+            started_callback=lambda proc: setattr(self, "proc", proc),
         )
 
     def log_capture_exit_code(self, label: str, code: int):
@@ -536,7 +537,6 @@ class App(tk.Tk):
     def run_process(self, cmd: list[str], label: str, allow_manual_stop: bool = True):
         self.log_capture_command(cmd, label)
         proc, code = self.execute_ffmpeg_command(cmd)
-        self.proc = proc
         self.log_capture_exit_code(label, code)
         self.proc = None
         return code

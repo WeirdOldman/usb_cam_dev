@@ -91,12 +91,13 @@ def make_ffmpeg_frame_callback(ui_queue):
     return lambda frame: ui_queue.put(("ffmpeg_frame", frame, None))
 
 
-def execute_ffmpeg_command(cmd: list[str], log_writer, ui_queue, fps: int):
+def execute_ffmpeg_command(cmd: list[str], log_writer, ui_queue, fps: int, started_callback=None):
     return run_ffmpeg_process(
         cmd,
         fps=fps,
         log_write=log_writer.write if log_writer else None,
         frame_callback=make_ffmpeg_frame_callback(ui_queue),
+        started_callback=started_callback,
     )
 
 

@@ -1088,11 +1088,15 @@ def test_run_process_helpers():
 
     original_run_ffmpeg_process = module.capture_helpers.run_ffmpeg_process
     try:
-        module.capture_helpers.run_ffmpeg_process = lambda cmd, fps, log_write, frame_callback: (
-            frame_callback('frame-1'),
-            log_write('ffmpeg-log\n') if log_write else None,
-            ('PROC', 17),
-        )[-1]
+        def fake_run_ffmpeg_process(cmd, fps, log_write, frame_callback, started_callback=None):
+            if started_callback:
+                started_callback('PROC')
+            frame_callback('frame-1')
+            if log_write:
+                log_write('ffmpeg-log\n')
+            return ('PROC', 17)
+
+        module.capture_helpers.run_ffmpeg_process = fake_run_ffmpeg_process
 
         app.log_capture_command(['ffmpeg', '-i', 'x'], 'record')
         assert app.capture_context.current_meta['commands'][-1] == {'record': ['ffmpeg', '-i', 'x']}
@@ -1112,6 +1116,55 @@ def test_run_process_helpers():
 
         code2 = app.run_process(['ffmpeg', '-i', 'x'], 'record')
         assert code2 == 17
+        assert app.proc is None
+    finally:
+        module.capture_helpers.run_ffmpeg_process = original_run_ffmpeg_process
+
+
+def test_run_process_exposes_proc_while_ffmpeg_is_running():
+    module = load_module()
+
+    class DummyWriter:
+        def __init__(self):
+            self.writes = []
+
+        def write(self, text):
+            self.writes.append(text)
+
+    class DummyQueue:
+        def __init__(self):
+            self.items = []
+
+        def put(self, item):
+            self.items.append(item)
+
+    app = object.__new__(module.App)
+    app.ui_queue = DummyQueue()
+    app.capture_context = module.CaptureContext(
+        current_meta={'commands': []},
+        log_writer=DummyWriter(),
+    )
+    app.proc = None
+
+    proc_seen_during_run = []
+    original_run_ffmpeg_process = module.capture_helpers.run_ffmpeg_process
+    try:
+        def fake_run_ffmpeg_process(cmd, fps, log_write, frame_callback, started_callback=None):
+            if started_callback:
+                started_callback('PROC')
+            proc_seen_during_run.append(app.proc)
+            if log_write:
+                log_write('ffmpeg-log\n')
+            if frame_callback:
+                frame_callback(1)
+            return ('PROC', 0)
+
+        module.capture_helpers.run_ffmpeg_process = fake_run_ffmpeg_process
+
+        code = app.run_process(['ffmpeg', '-i', 'x'], 'record')
+
+        assert code == 0
+        assert proc_seen_during_run == ['PROC']
         assert app.proc is None
     finally:
         module.capture_helpers.run_ffmpeg_process = original_run_ffmpeg_process
