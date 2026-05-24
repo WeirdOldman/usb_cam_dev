@@ -19,6 +19,9 @@ class CaptureState:
     last_fps_sample_count: int = 0
     instant_fps: float = 0.0
     disk_warning_logged: bool = False
+    last_write_rate_mb_s: float = 0.0
+    last_estimated_time_left_s: float | None = None
+    last_health_status: str = "unknown"
 
     def reset_for_capture(self) -> None:
         self.last_ffmpeg_frame = 0
@@ -32,6 +35,9 @@ class CaptureState:
         self.last_fps_sample_count = 0
         self.instant_fps = 0.0
         self.disk_warning_logged = False
+        self.last_write_rate_mb_s = 0.0
+        self.last_estimated_time_left_s = None
+        self.last_health_status = "unknown"
 
     def snapshot_for_metrics(self, *, current_frames_dir: Path | None, current_session: Path | None) -> dict:
         return {
@@ -48,6 +54,9 @@ class CaptureState:
             'last_fps_sample_time': self.last_fps_sample_time,
             'last_fps_sample_count': self.last_fps_sample_count,
             'instant_fps': self.instant_fps,
+            'last_write_rate_mb_s': self.last_write_rate_mb_s,
+            'last_estimated_time_left_s': self.last_estimated_time_left_s,
+            'last_health_status': self.last_health_status,
         }
 
     def apply_metrics_snapshot(self, snapshot: dict) -> None:
@@ -60,6 +69,9 @@ class CaptureState:
         self.last_fps_sample_time = snapshot['last_fps_sample_time']
         self.last_fps_sample_count = snapshot['last_fps_sample_count']
         self.instant_fps = snapshot['instant_fps']
+        self.last_write_rate_mb_s = snapshot['last_write_rate_mb_s']
+        self.last_estimated_time_left_s = snapshot['last_estimated_time_left_s']
+        self.last_health_status = snapshot['last_health_status']
 
     def queue_snapshot(self) -> dict:
         return {

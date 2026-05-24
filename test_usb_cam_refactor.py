@@ -355,6 +355,9 @@ def test_capture_state_reset_and_snapshot_helpers(tmp_path):
         last_fps_sample_count=5,
         instant_fps=4.5,
         disk_warning_logged=True,
+        last_write_rate_mb_s=1.5,
+        last_estimated_time_left_s=120.0,
+        last_health_status='warning',
     )
 
     state.reset_for_capture()
@@ -369,6 +372,9 @@ def test_capture_state_reset_and_snapshot_helpers(tmp_path):
     assert state.last_fps_sample_count == 0
     assert state.instant_fps == 0.0
     assert state.disk_warning_logged is False
+    assert state.last_write_rate_mb_s == 0.0
+    assert state.last_estimated_time_left_s is None
+    assert state.last_health_status == 'unknown'
 
     frames_dir = tmp_path / 'frames'
     session_dir = tmp_path / 'session'
@@ -376,6 +382,9 @@ def test_capture_state_reset_and_snapshot_helpers(tmp_path):
     assert snap['current_frames_dir'] == frames_dir
     assert snap['current_session'] == session_dir
     assert snap['start_time'] == 12.5
+    assert snap['last_write_rate_mb_s'] == 0.0
+    assert snap['last_estimated_time_left_s'] is None
+    assert snap['last_health_status'] == 'unknown'
 
     state.apply_metrics_snapshot({
         'last_scan_time': 1.0,
@@ -387,6 +396,9 @@ def test_capture_state_reset_and_snapshot_helpers(tmp_path):
         'last_fps_sample_time': 7.0,
         'last_fps_sample_count': 8,
         'instant_fps': 9.5,
+        'last_write_rate_mb_s': 2.25,
+        'last_estimated_time_left_s': 90.0,
+        'last_health_status': 'ok',
     })
     assert state.last_scan_time == 1.0
     assert state.cached_frame_count == 2
@@ -397,6 +409,9 @@ def test_capture_state_reset_and_snapshot_helpers(tmp_path):
     assert state.last_fps_sample_time == 7.0
     assert state.last_fps_sample_count == 8
     assert state.instant_fps == 9.5
+    assert state.last_write_rate_mb_s == 2.25
+    assert state.last_estimated_time_left_s == 90.0
+    assert state.last_health_status == 'ok'
 
     queue_snapshot = state.queue_snapshot()
     assert queue_snapshot == {'last_ffmpeg_frame': 0, 'capture_running': True}
@@ -440,6 +455,9 @@ def test_runtime_meta_builder_and_pipeline_direct_mode():
     assert meta['output']['image_prefix'] == 'img'
     assert meta['commands'] == []
     assert meta['exit_codes'] == []
+    assert meta['auto_stopped'] is False
+    assert meta['stop_reason'] is None
+    assert meta['stop_reason_detail'] is None
 
     calls = []
 
@@ -534,6 +552,11 @@ def test_ui_state_covers_scan_branches_and_remaining_actions(tmp_path, monkeypat
     assert metrics['capture_fps_text'].endswith('fps')
     assert metrics['disk_low_space'] is True
     assert metrics['disk_free_mb'] == 50.0
+    assert metrics['write_rate_mb_s'] > 0
+    assert metrics['estimated_time_left_s'] == 524288.0
+    assert metrics['estimated_time_left_text'] == '145:38:08'
+    assert metrics['capture_health'] == 'warning'
+    assert 'disk' in metrics['capture_health_reason']
     assert metrics['disk_free_warning_text'] == '磁盘剩余空间不足：50.0 MB'
 
     idle_state = dict(state)
@@ -552,11 +575,23 @@ def test_ui_state_covers_scan_branches_and_remaining_actions(tmp_path, monkeypat
     assert idle_metrics['capture_fps_text'] == '-- fps'
     assert idle_metrics['disk_low_space'] is False
     assert idle_metrics['disk_free_warning_text'] == ''
+    assert idle_metrics['write_rate_mb_s'] == 0.0
+    assert idle_metrics['estimated_time_left_s'] is None
+    assert idle_metrics['estimated_time_left_text'] == '--:--:--'
+    assert idle_metrics['capture_health'] == 'unknown'
+    assert idle_metrics['capture_health_reason'] == 'insufficient_data'
 
     recording_state = dict(idle_state)
     recording_state['cached_session_size'] = 10
+    recording_state['instant_fps'] = 5.0
     recording_metrics = usb_cam_ui_state.update_capture_metrics(recording_state, now=1.0, fps=25)
     assert recording_metrics['estimate_text'] == '录制中，停止后统计图片空间'
+
+    assert recording_metrics['write_rate_mb_s'] > 0
+    assert recording_metrics['estimated_time_left_s'] is None
+    assert recording_metrics['estimated_time_left_text'] == '--:--:--'
+    assert recording_metrics['capture_health'] == 'warning'
+    assert 'fps' in recording_metrics['capture_health_reason']
 
     snapshot = {'last_ffmpeg_frame': 0, 'capture_running': True}
     assert usb_cam_ui_state.process_ui_message(snapshot, 'preview_frame', b'data') == ('preview_frame', b'data')
@@ -1072,6 +1107,10 @@ def test_ui_apply_helpers(tmp_path):
         'used_size_text': '10 MB',
         'estimate_text': '约 7 MB/分钟',
         'capture_fps_text': '25 fps',
+        'write_rate_mb_s': 1.25,
+        'estimated_time_left_text': '00:10:00',
+        'capture_health': 'ok',
+        'capture_health_reason': 'stable',
     }
     app.apply_capture_metrics(metrics)
     assert app.elapsed_var.get() == '00:01:23'
@@ -1096,6 +1135,9 @@ def test_ui_apply_helpers(tmp_path):
         assert timer_calls[-1]['fps'] == 25
         assert timer_calls[-1]['update_capture_metrics_fn'] is module.update_capture_metrics
         assert after_calls[-1] == (500, 'update_timer')
+        assert timer_calls[-1]['auto_stop_prefs']['enabled'] is True
+        assert timer_calls[-1]['auto_stop_prefs']['min_disk_free_mb_hard'] == 5120.0
+        assert app.status_var.get() == '采集稳定：约剩 00:10:00，写盘 1.25 MB/s'
 
         finalized = {
             'cached_frame_count': 12,
@@ -1115,6 +1157,32 @@ def test_ui_apply_helpers(tmp_path):
         assert finalize_calls[-1]['finalize_capture_done_state_fn'] is module.finalize_capture_done_state
         assert running_calls[-1] is False
         assert app.status_var.get() == '已停止/完成。'
+        auto_stop_metrics = dict(metrics)
+        auto_stop_metrics.update({
+            'auto_stop': True,
+            'auto_stop_reason': 'disk_low_space',
+            'auto_stop_detail': 'free_mb=64.0 threshold=128.0',
+        })
+        stop_calls = []
+
+        class DummyWriter:
+            def __init__(self):
+                self.writes = []
+
+            def write(self, text):
+                self.writes.append(text)
+
+        app.capture_context.current_meta = {}
+        app.capture_context.log_writer = DummyWriter()
+        module.capture_helpers.update_capture_timer_tick = lambda **kwargs: auto_stop_metrics
+        app.stop_capture = lambda: stop_calls.append('stop')
+        app.update_timer()
+        assert app.capture_context.current_meta['auto_stopped'] is True
+        assert app.capture_context.current_meta['stop_reason'] == 'disk_low_space'
+        assert app.capture_context.current_meta['stop_reason_detail'] == 'free_mb=64.0 threshold=128.0'
+        assert stop_calls == ['stop']
+        assert app.status_var.get() == '自动停止：disk_low_space'
+        assert '[auto-stop] disk_low_space free_mb=64.0 threshold=128.0' in app.capture_context.log_writer.writes[0]
     finally:
         module.time.time = original_time
         module.update_capture_metrics = original_update_capture_metrics
@@ -1453,6 +1521,103 @@ def test_update_capture_timer_tick_logs_disk_warning_once():
     assert len(seen) == 2
 
 
+def test_update_capture_timer_tick_returns_auto_stop_decision():
+    import usb_cam_capture_helpers as module
+    import usb_cam_capture_state
+    import usb_cam_capture_context
+
+    capture_state = usb_cam_capture_state.CaptureState()
+    capture_context = usb_cam_capture_context.CaptureContext()
+
+    metrics = {
+        'elapsed_text': '00:10:01',
+        'display_count': 100,
+        'used_size_text': '100.0 MB',
+        'estimate_text': '约 20 MB/分钟（仅图片）',
+        'capture_fps_text': '25.00 fps',
+        'cached_frame_count': 100,
+        'cached_frame_total_size': 1000,
+        'cached_session_size': 2000,
+        'disk_free_bytes': 1024,
+        'disk_free_mb': 0.001,
+        'disk_low_space': True,
+        'disk_free_warning_text': '磁盘剩余空间不足：0.0 MB',
+        'write_rate_mb_s': 1.0,
+        'estimated_time_left_s': 5.0,
+        'estimated_time_left_text': '00:00:05',
+        'capture_health': 'warning',
+        'capture_health_reason': 'disk_low_space',
+    }
+
+    def fake_update(snapshot, now, fps):
+        return dict(metrics)
+
+    result = module.update_capture_timer_tick(
+        capture_state=capture_state,
+        capture_context=capture_context,
+        now=601.0,
+        fps=25,
+        update_capture_metrics_fn=fake_update,
+        log_writer=None,
+        auto_stop_prefs={
+            'enabled': True,
+            'max_duration_s': 600.0,
+            'min_disk_free_mb_hard': 128.0,
+            'min_effective_fps_ratio': 0.7,
+        },
+    )
+
+    assert result['auto_stop'] is True
+    assert result['auto_stop_reason'] == 'max_duration'
+    assert result['auto_stop_detail'] == 'elapsed=601.0s limit=600.0s'
+
+
+def test_default_auto_stop_prefs_enable_conservative_disk_floor():
+    import usb_cam_stop_prefs
+
+    prefs = usb_cam_stop_prefs.default_auto_stop_prefs()
+
+    assert prefs['enabled'] is True
+    assert prefs['max_duration_s'] is None
+    assert prefs['min_disk_free_mb_hard'] == 5120.0
+    assert prefs['min_effective_fps_ratio'] is None
+
+
+def test_default_auto_stop_prefs_allow_validation_override():
+    import usb_cam_stop_prefs
+
+    prefs = usb_cam_stop_prefs.default_auto_stop_prefs(min_disk_free_mb_hard=128.0)
+
+    assert prefs['enabled'] is True
+    assert prefs['min_disk_free_mb_hard'] == 128.0
+
+
+def test_runtime_auto_stop_prefs_uses_default_disk_floor(monkeypatch):
+    module = load_module()
+
+    monkeypatch.delenv('USB_CAM_AUTOSTOP_DISK_MB', raising=False)
+    monkeypatch.delenv('USB_CAM_AUTOSTOP_MAX_DURATION_S', raising=False)
+
+    prefs = module.runtime_auto_stop_prefs()
+
+    assert prefs['enabled'] is True
+    assert prefs['min_disk_free_mb_hard'] == 5120.0
+    assert prefs['max_duration_s'] is None
+
+
+def test_runtime_auto_stop_prefs_accepts_env_override(monkeypatch):
+    module = load_module()
+
+    monkeypatch.setenv('USB_CAM_AUTOSTOP_DISK_MB', '128')
+    monkeypatch.setenv('USB_CAM_AUTOSTOP_MAX_DURATION_S', '600')
+
+    prefs = module.runtime_auto_stop_prefs()
+
+    assert prefs['enabled'] is True
+    assert prefs['min_disk_free_mb_hard'] == 128.0
+    assert prefs['max_duration_s'] == 600.0
+
+
 def test_process_queue_dispatch_helpers():
     module = load_module()
 
@@ -1691,3 +1856,29 @@ def test_session_finalize_updates_meta(tmp_path):
     assert 'frames_csv' in result['current_meta']
     assert result['meta_path'].exists()
     assert result['summary_path'].exists()
+
+
+def test_session_finalize_preserves_auto_stop_reason(tmp_path):
+    import usb_cam_session_finalize
+
+    session_dir = tmp_path / 'session'
+    frames_dir = session_dir / 'frames'
+    frames_dir.mkdir(parents=True)
+    (frames_dir / 'img_000001.jpg').write_bytes(b'1234')
+    meta = {
+        'input': {'fps': 25},
+        'auto_stopped': True,
+        'stop_reason': 'disk_low_space',
+        'stop_reason_detail': 'free_mb=64.0 threshold=128.0',
+    }
+
+    result = usb_cam_session_finalize.finalize_session(
+        current_session=session_dir,
+        current_frames_dir=frames_dir,
+        current_meta=meta,
+        start_time=0.0,
+    )
+
+    assert result['current_meta']['auto_stopped'] is True
+    assert result['current_meta']['stop_reason'] == 'disk_low_space'
+    assert result['current_meta']['stop_reason_detail'] == 'free_mb=64.0 threshold=128.0'

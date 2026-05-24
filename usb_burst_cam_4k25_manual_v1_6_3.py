@@ -28,6 +28,7 @@ from usb_cam_stats import disk_free_status
 import usb_cam_capture_helpers as capture_helpers
 import usb_cam_preview_helpers as preview_helpers
 import usb_cam_queue_helpers as queue_helpers
+from usb_cam_stop_prefs import default_auto_stop_prefs
 
 APP_NAME = "usb_burst_cam_4k25_manual_v1_6_3"
 APP_TITLE = "USB 摄像头 4K25 手动连拍"
@@ -38,6 +39,26 @@ DEFAULT_CAMERA_NAME = "imx678' UVC "
 MAX_LOG_BYTES = 10 * 1024 * 1024
 PREVIEW_WIDTH = 640
 PREVIEW_FPS = 5
+
+
+def runtime_auto_stop_prefs() -> dict:
+    prefs = default_auto_stop_prefs()
+
+    disk_override = os.environ.get("USB_CAM_AUTOSTOP_DISK_MB")
+    if disk_override:
+        try:
+            prefs["min_disk_free_mb_hard"] = float(disk_override)
+        except ValueError:
+            pass
+
+    duration_override = os.environ.get("USB_CAM_AUTOSTOP_MAX_DURATION_S")
+    if duration_override:
+        try:
+            prefs["max_duration_s"] = float(duration_override)
+        except ValueError:
+            pass
+
+    return prefs
 
 
 def setup_console_encoding():
@@ -580,8 +601,22 @@ class App(tk.Tk):
                 fps=FPS,
                 update_capture_metrics_fn=update_capture_metrics,
                 log_writer=self.capture_context.log_writer,
+                auto_stop_prefs=runtime_auto_stop_prefs(),
             )
             self.apply_capture_metrics(metrics)
+            if metrics.get('auto_stop'):
+                self.capture_context.current_meta['auto_stopped'] = True
+                self.capture_context.current_meta['stop_reason'] = metrics.get('auto_stop_reason')
+                self.capture_context.current_meta['stop_reason_detail'] = metrics.get('auto_stop_detail')
+                if self.capture_context.log_writer:
+                    self.capture_context.log_writer.write(
+                        f"\n[auto-stop] {metrics.get('auto_stop_reason')} {metrics.get('auto_stop_detail')}\n"
+                    )
+                self.status_var.set(f"自动停止：{metrics.get('auto_stop_reason')}")
+                self.stop_capture()
+                return
+
+            self.status_var.set(capture_helpers.capture_health_status_text(metrics))
             self.after(500, self.update_timer)
 
     def apply_preview_frame(self, img):

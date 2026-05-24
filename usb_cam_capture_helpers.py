@@ -5,6 +5,7 @@ from pathlib import Path
 from usb_cam_ffmpeg import quote_cmd
 from usb_cam_process import run_ffmpeg_process
 from usb_cam_runtime import build_capture_meta, run_capture_pipeline
+from usb_cam_stop_prefs import evaluate_auto_stop
 
 
 def reset_capture_display(frame_count_var, elapsed_var, used_size_var, estimate_var, capture_fps_var):
@@ -125,12 +126,28 @@ def apply_capture_metrics(elapsed_var, frame_count_var, used_size_var, estimate_
     capture_fps_var.set(metrics['capture_fps_text'])
 
 
-def update_capture_timer_tick(*, capture_state, capture_context, now: float, fps: int, update_capture_metrics_fn, log_writer=None):
+def capture_health_status_text(metrics: dict) -> str:
+    health = metrics.get('capture_health', 'unknown')
+    reason = metrics.get('capture_health_reason', 'insufficient_data')
+    time_left = metrics.get('estimated_time_left_text', '--:--:--')
+    write_rate = metrics.get('write_rate_mb_s', 0.0)
+
+    if health == 'warning' and reason == 'disk_low_space':
+        return f"警告：磁盘余量偏低，约剩 {time_left}，写盘 {write_rate:.2f} MB/s"
+    if health == 'warning' and reason == 'fps_below_threshold':
+        return f"警告：实时 FPS 偏低，约剩 {time_left}，写盘 {write_rate:.2f} MB/s"
+    if health == 'ok':
+        return f"采集稳定：约剩 {time_left}，写盘 {write_rate:.2f} MB/s"
+    return f"采集中：约剩 {time_left}，写盘 {write_rate:.2f} MB/s"
+
+
+def update_capture_timer_tick(*, capture_state, capture_context, now: float, fps: int, update_capture_metrics_fn, log_writer=None, auto_stop_prefs=None):
     snapshot = capture_state.snapshot_for_metrics(
         current_frames_dir=capture_context.current_frames_dir,
         current_session=capture_context.current_session,
     )
     metrics = update_capture_metrics_fn(snapshot, now=now, fps=fps)
+    metrics['target_fps'] = fps
     capture_state.apply_metrics_snapshot(snapshot)
     if (
         metrics.get('disk_low_space')
@@ -140,6 +157,14 @@ def update_capture_timer_tick(*, capture_state, capture_context, now: float, fps
         if log_writer:
             log_writer.write(f"\n[warning] {metrics['disk_free_warning_text']}\n")
         capture_state.disk_warning_logged = True
+
+    auto_stop = evaluate_auto_stop(
+        metrics=metrics,
+        now=now,
+        state=snapshot,
+        prefs=auto_stop_prefs,
+    )
+    metrics.update(auto_stop)
     return metrics
 
 

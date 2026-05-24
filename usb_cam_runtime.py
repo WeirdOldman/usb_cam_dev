@@ -48,6 +48,9 @@ def build_capture_meta(
         "exit_codes": [],
         "delete_video_after_extract": bool(delete_video_after_extract),
         "manual_start_time": manual_start_time,
+        "auto_stopped": False,
+        "stop_reason": None,
+        "stop_reason_detail": None,
     }
 
 
