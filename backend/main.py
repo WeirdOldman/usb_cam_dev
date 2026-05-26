@@ -112,8 +112,8 @@ HEIGHT = 2160
 FPS = 25
 DEFAULT_CAMERA_NAME = "imx678' UVC "
 MAX_LOG_BYTES = 10 * 1024 * 1024
-PREVIEW_WIDTH = 640
-PREVIEW_FPS = 5
+PREVIEW_WIDTH = 480
+PREVIEW_FPS = 3
 UNKNOWN_ACCELERATION = "Unknown"
 
 
@@ -162,7 +162,7 @@ class BackendRuntime:
     preview_worker: threading.Thread | None = None
     preview_lock: threading.Lock = field(default_factory=threading.Lock)
     latest_preview_frame: bytes | None = None
-    preview_enabled: bool = True
+    preview_enabled: bool = False
     capture_context: CaptureContext = field(default_factory=CaptureContext)
     capture_state: CaptureState = field(default_factory=CaptureState)
     monitor_lock: threading.Lock = field(default_factory=threading.Lock)

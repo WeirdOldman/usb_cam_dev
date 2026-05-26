@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable
@@ -237,7 +238,7 @@ def create_runtime_app(*, runtime_state: Any, config: RuntimeApiConfig) -> FastA
             while True:
                 payload = runtime_state.snapshot()
                 await websocket.send_json(payload)
-                await websocket.receive_text()
+                await asyncio.sleep(0.5)
         except (WebSocketDisconnect, RuntimeError):
             return
 

@@ -25,6 +25,8 @@ export function MonitoringPreviewPanel({
   previewEnabled,
   ffmpegPath,
 }: MonitoringPreviewPanelProps) {
+  const streamActive = previewEnabled || isRunning;
+
   return (
     <div
       className={`relative flex min-h-[320px] flex-1 flex-col overflow-hidden rounded-[28px] border bg-[#0f141b] shadow-[0_30px_60px_rgba(15,23,42,0.22)] transition-colors duration-500 ${
@@ -73,9 +75,25 @@ export function MonitoringPreviewPanel({
           ></div>
         ) : null}
 
-        <img src={mjpegUrl} alt="实时预览" className={`h-full w-full object-contain transition-opacity duration-500 ${wsConnected ? "opacity-100" : "opacity-85"}`} />
+        {streamActive ? (
+          <img
+            src={mjpegUrl}
+            alt="实时预览"
+            className={`h-full w-full object-contain transition-opacity duration-500 ${wsConnected ? "opacity-100" : "opacity-85"}`}
+          />
+        ) : null}
 
-        {!wsConnected ? (
+        {!streamActive ? (
+          <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 bg-black/25 text-gray-300 backdrop-blur-[1px]">
+            <div className="rounded-full border border-white/10 bg-white/5 p-4 shadow-inner">
+              <Video size={40} className="opacity-60" strokeWidth={1} />
+            </div>
+            <div className="text-center">
+              <p className="text-sm font-medium tracking-[0.12em]">预览未启动</p>
+              <p className="mt-1 text-xs text-gray-400">空闲状态默认不拉取视频流，点击右侧按钮再启动预览</p>
+            </div>
+          </div>
+        ) : !wsConnected ? (
           <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 bg-black/25 text-gray-300 backdrop-blur-[1px]">
             <div className="rounded-full border border-white/10 bg-white/5 p-4 shadow-inner">
               <Video size={40} className="opacity-60" strokeWidth={1} />

@@ -70,9 +70,9 @@ const defaultRuntime: MonitorRuntime = {
   captureLastErrorReason: "",
   captureLastErrorCode: null,
   captureLastSessionDir: "",
-  previewEnabled: true,
+  previewEnabled: false,
   previewActive: false,
-  previewStatus: "预览就绪。",
+  previewStatus: "预览已关闭。",
   events: [],
   cameraDevices: [],
   uiLocks: {
@@ -234,10 +234,6 @@ export function useMonitoringRuntime() {
         uiLocks: applyUiLocks(prev.uiLocks, data.ui_locks),
       }));
       setConfig((prev) => applyConfigPayload(prev, data.config));
-
-      if (ws.readyState === WebSocket.OPEN) {
-        ws.send("ack");
-      }
     };
 
     ws.onerror = () => {

@@ -150,13 +150,19 @@ def test_monitor_websocket_pushes_runtime_snapshot(tmp_path: Path):
 
     with client.websocket_connect("/ws/monitor") as websocket:
         payload = websocket.receive_json()
-        websocket.send_text("ack")
 
     assert payload["runtime_seconds"] == 7
     assert payload["fps"] == 4.2
     assert payload["processed_frames"] == 123
     assert payload["events"][0]["message"] == "System initialized."
     assert payload["config"]["mode"] == "direct_frames"
+
+
+def test_runtime_defaults_preview_to_disabled(tmp_path: Path):
+    runtime = backend_main.BackendRuntime(base_dir=tmp_path)
+
+    assert runtime.preview_enabled is False
+    assert runtime.preview_status_text() == "Preview stopped."
 
 
 def test_select_output_dir_endpoint_updates_runtime_config(tmp_path: Path, monkeypatch):
@@ -698,7 +704,7 @@ def test_preview_stop_does_not_override_existing_capture_failure_status(tmp_path
     payload = runtime.snapshot()
     assert payload["capture_last_error_reason"] == "camera_invalid"
     assert payload["status_text"] == "Selected camera could not be opened: INVALID_CAMERA."
-    assert payload["preview_status"] == "Preview ready."
+    assert payload["preview_status"] == "Preview stopped."
 
 
 def test_monitor_endpoint_returns_structured_runtime_snapshot(tmp_path: Path):

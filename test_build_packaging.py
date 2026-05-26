@@ -327,6 +327,22 @@ def test_real_validation_delegates_capture_validation_helpers():
     assert (REPO_ROOT / "usb_cam_validation_capture.py").exists()
 
 
+def test_runtime_api_websocket_stream_is_not_ack_driven():
+    content = (REPO_ROOT / "backend" / "runtime_api.py").read_text(encoding="utf-8")
+
+    assert 'await websocket.receive_text()' not in content
+    assert "asyncio.sleep" in content
+
+
+def test_idle_preview_is_disabled_by_default_in_frontend_and_ui():
+    runtime_hook = (REPO_ROOT / "ui" / "src" / "app" / "components" / "monitoring" / "useMonitoringRuntime.ts").read_text(encoding="utf-8")
+    preview_panel = (REPO_ROOT / "ui" / "src" / "app" / "components" / "monitoring" / "MonitoringPreviewPanel.tsx").read_text(encoding="utf-8")
+
+    assert 'previewEnabled: false' in runtime_hook
+    assert 'ws.send("ack")' not in runtime_hook
+    assert "const streamActive = previewEnabled || isRunning" in preview_panel
+
+
 def test_packaged_runtime_playbook_replaces_phase4_step_docs():
     readme = (REPO_ROOT / "README.md").read_text(encoding="utf-8")
 
