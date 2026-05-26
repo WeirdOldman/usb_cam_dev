@@ -27,6 +27,7 @@ def test_requirements_pywebview_covers_packaged_runtime_dependencies():
     assert "numpy" in content
     assert "requests" in content
     assert "psutil" in content
+    assert "httpx" in content
 
 
 def test_build_webview_script_targets_ui_dist_output():
