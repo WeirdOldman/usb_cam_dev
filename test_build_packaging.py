@@ -188,6 +188,7 @@ def test_ci_workflow_targets_current_webview_runtime_tests():
     assert "test_backend_main.py" in content
     assert "test_usb_cam_real_validation.py" in content
     assert "test_usb_cam_refactor.py" not in content
+    assert "requirements-pywebview.txt pytest pyinstaller" in content
 
 
 def test_release_workflow_builds_repo_local_ui_and_current_backend_entry():
