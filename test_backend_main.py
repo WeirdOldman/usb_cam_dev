@@ -273,6 +273,37 @@ def test_build_record_cmd_includes_preview_pipe_output(tmp_path: Path):
     assert "image2pipe" in cmd
 
 
+def test_refresh_monitor_payload_does_not_fake_runtime_metrics(tmp_path: Path, monkeypatch):
+    runtime = backend_main.BackendRuntime(base_dir=tmp_path)
+    runtime.capture_state.capture_running = True
+    runtime.capture_state.start_time = 10.0
+    runtime.capture_context.current_session = tmp_path / "session"
+    runtime.capture_context.current_session.mkdir()
+
+    monkeypatch.setattr(backend_main.time, "time", lambda: 20.0)
+    monkeypatch.setattr(backend_main.psutil, "cpu_percent", lambda interval=None: 17.25)
+    monkeypatch.setattr(
+        backend_main,
+        "update_capture_timer_tick",
+        lambda **kwargs: {
+            "capture_fps_text": "12.50 fps",
+            "display_count": 321,
+            "capture_health_reason": "stable",
+            "write_rate_mb_s": 3.5,
+        },
+    )
+
+    runtime.refresh_monitor_payload()
+    payload = runtime.snapshot()
+
+    assert payload["running"] is True
+    assert payload["fps"] == 12.5
+    assert payload["processed_frames"] == 321
+    assert payload["cpu_percent"] == 17.2
+    assert payload["bitrate_mbps"] == 28.0
+    assert payload["acceleration"] == "Unknown"
+
+
 def test_window_minimize_endpoint_calls_webview_window(monkeypatch):
     class DummyWindow:
         def __init__(self):

@@ -1,9 +1,5 @@
 from __future__ import annotations
 
-import os
-import shutil
-
-
 def quote_cmd(cmd: list[str]) -> str:
     return " ".join(f'"{x}"' if " " in x else x for x in cmd)
 

@@ -39,6 +39,7 @@ const directTextMap = new Map([
   ["Starting", "启动中"],
   ["Stopping", "停止中"],
   ["Idle", "空闲"],
+  ["Unknown", "未知"],
   ["CUDA Active", "CUDA 已启用"],
   ["stable", "运行稳定。"],
   ["fps_below_threshold", "采集帧率低于阈值。"],

@@ -1,11 +1,25 @@
+# USB Cam 4K25 UI
 
-  # Redesign Software Interface
+`ui/` 是当前桌面壳前端，服务于 `PyWebView + FastAPI + React` 主线。
 
-  This is a code bundle for Redesign Software Interface. The original project is available at https://www.figma.com/design/bieYgpFzuYJ34s9A9n5mQK/Redesign-Software-Interface.
+## 本地开发
 
-  ## Running the code
+先安装依赖：
 
-  Run `npm i` to install the dependencies.
+```bash
+npm install
+```
 
-  Run `npm run dev` to start the development server.
-  
+启动开发服务器：
+
+```bash
+npm run dev
+```
+
+打包静态资源：
+
+```bash
+npm run build
+```
+
+构建产物会被 `build_webview.bat` 复制到仓库根目录的 `ui_dist/`，供 `backend/main.py` 和打包流程使用。

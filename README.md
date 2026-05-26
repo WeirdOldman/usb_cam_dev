@@ -56,10 +56,10 @@ Windows USB 摄像头采集工具，当前默认桌面主线为 **PyWebView + Fa
 - `backend/main.py`：PyWebView/FastAPI 入口与运行时 API
 - `usb_cam_real_validation.py`：正式包 smoke / release / summary 验证
 
-更详细的结构说明见：
+更详细的当前结构说明见：
 
-- `USB_CAM_REFACTOR_STRUCTURE.md`
-- `USB_CAM_REFACTOR_ROADMAP.md`
+- `docs/CURRENT_PROJECT_STRUCTURE.md`
+- `docs/USB_CAM_PROJECT_HANDOFF.md`
 - `docs/USB_CAM_STABILITY_POLICY.md`
 
 ## 运行要求
@@ -122,7 +122,6 @@ build.bat
 
 - App 名称：`USB_Cam_4K25`
 - 主入口：`backend/main.py`
-- spec 文件：`USB_Cam_4K25.spec`
 - 打包输出目录默认：`dist/USB_Cam_4K25/`
 - 前端静态资源打包到：
   - `dist/USB_Cam_4K25/_internal/ui_dist/`
@@ -134,39 +133,40 @@ build.bat
 参考：
 
 - `docs/requirements/WEBVIEW_PACKAGED_RUNTIME_QUICKSTART.md`
-- `docs/requirements/WEBVIEW_PACKAGED_RUNTIME_FINAL_VALIDATION_2026-05-25.md`
+- `docs/requirements/WEBVIEW_PACKAGED_RUNTIME_FINAL_VALIDATION_2026-05-26.md`
 - `docs/USB_CAM_PACKAGING_VALIDATION_CHECKLIST.md`
-- `docs/USB_CAM_MANUAL_VALIDATION_CHECKLIST.md`
-- `docs/USB_CAM_PHASE4_TASK3_1_FIRST_BUILD_GUIDE.md`
-- `docs/USB_CAM_PHASE4_TASK3_2_FIRST_BUILD_RECORD_TEMPLATE.md`
-- `docs/USB_CAM_PHASE4_TASK3_3_WINDOWS_RUN_PACKAGE.md`
+- `docs/USB_CAM_PACKAGED_RUNTIME_PLAYBOOK.md`
 
-## 当前项目状态
+### 本地 `tools/` 边界
 
-这个仓库已经完成：
+`tools/` 目录用于放本机运行依赖，例如 `tools/ffmpeg.exe`。
 
-- 项目目录清理
-- git 初始化
-- `main` 分支建立
-- GitHub 托管接通
-- 核心逻辑完成一轮渐进式模块化拆分
-- 当前有效自动回归测试可运行
-- `2026-05-26` 正式包重打与 packaged validation 已再次通过
+它的定位是：
 
-当前更适合继续做的是：
+- 本地运行依赖目录
+- 不受版本控制
+- 可按机器环境单独准备
 
-1. 清理当前工作树中的提交边界并准备最新版交付提交
-2. 长时间采集稳定性增强
-3. Tk legacy 界面的退役与清理
-4. 后续 issue 化管理
+真实打包或真实采集验证时，优先准备：
+
+- `tools/ffmpeg.exe`
+
+## 当前主线维护清单
+
+当前主线更值得继续做的是：
+
+1. 继续拆分 `backend/main.py` 的剩余 owner
+2. 继续拆分 `usb_cam_real_validation.py` 的 capture / autostop owner
+3. 保持 packaged runtime 回归与交付口径稳定
+4. 整理当前工作树中的提交边界并准备交付
 
 ## 开发原则
 
 这个项目当前遵循的原则：
 
 - 新桌面主线优先：PyWebView + FastAPI + React
-- Tk 界面只作为 legacy 参考，不再作为默认入口
-- 先稳主链路，再清理 legacy UI 残留
+- 不回退到旧 Tk 主线
+- 先稳主链路，再做结构整理
 - 小步重构，每一步都要能回归验证
 - 不在结构整理时顺手扩功能
 

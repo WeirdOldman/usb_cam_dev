@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from pathlib import Path
-
 from usb_cam_stats import bytes_to_mb, disk_free_status, folder_size
 from usb_cam_session_writer import count_frame_files
 

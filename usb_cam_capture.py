@@ -2,9 +2,6 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from usb_cam_ffmpeg import record_direct_frames_cmd, record_video_cmd
-
-
 def base_input_args(width: int, height: int, fps: int, camera_name: str) -> list[str]:
     return [
         "-f", "dshow",

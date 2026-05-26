@@ -6,8 +6,6 @@ set "UI_DIR=%ROOT_DIR%ui"
 set "FRONTEND_OUT=%ROOT_DIR%ui_dist"
 set "PACKAGED_BUILD_NAME=dist_packaged_runtime_%RANDOM%_%RANDOM%"
 set "PACKAGED_BUILD_OUT=%UI_DIR%\%PACKAGED_BUILD_NAME%"
-set "NODE_EXE="
-set "VITE_ENTRY=%UI_DIR%\node_modules\vite\bin\vite.js"
 
 cd /d "%ROOT_DIR%"
 
@@ -27,12 +25,6 @@ if errorlevel 1 (
   exit /b 1
 )
 
-for /f "delims=" %%I in ('where node') do if not defined NODE_EXE set "NODE_EXE=%%I"
-if not defined NODE_EXE (
-  echo [ERROR] Failed to resolve node.exe path.
-  exit /b 1
-)
-
 echo [INFO] Building frontend for packaged PyWebView runtime...
 cd /d "%UI_DIR%"
 if not exist "%UI_DIR%\node_modules" (
@@ -49,7 +41,6 @@ if not exist "%UI_DIR%\node_modules" (
 )
 if exist "%PACKAGED_BUILD_OUT%" rmdir /s /q "%PACKAGED_BUILD_OUT%"
 mkdir "%PACKAGED_BUILD_OUT%"
-mkdir "%PACKAGED_BUILD_OUT%\assets"
 call npm run build -- --outDir "%PACKAGED_BUILD_NAME%" --emptyOutDir false
 if errorlevel 1 (
   echo [ERROR] Frontend build failed.

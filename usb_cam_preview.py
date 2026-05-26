@@ -1,8 +1,6 @@
 from __future__ import annotations
 
 import subprocess
-import threading
-
 from usb_cam_ffmpeg import preview_cmd
 from usb_cam_process import windows_popen_kwargs
 
