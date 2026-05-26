@@ -10,6 +10,10 @@ tools/
 capture_output/
 ui_dist/
 docs/aegis/
+node_modules/
+ui/dist/
+ui/dist_packaged_runtime*/
+ui/dist_packaged_runtime_precreated/
 
 *.log
 *.tmp

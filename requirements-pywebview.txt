@@ -4,3 +4,4 @@ pywebview
 opencv-python
 numpy
 requests
+psutil

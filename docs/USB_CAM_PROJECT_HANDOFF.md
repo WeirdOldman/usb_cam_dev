@@ -147,7 +147,7 @@
 
 作用：
 
-1. 构建 `E:\codex\ui`
+1. 构建 `E:\codex\usb_cam_dev\ui`
 2. 同步静态资源到 `E:\codex\usb_cam_dev\ui_dist`
 3. 使用 PyInstaller 打包 `backend/main.py`
 

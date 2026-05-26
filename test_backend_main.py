@@ -5,6 +5,10 @@ from fastapi.testclient import TestClient
 
 import backend.main as backend_main
 
+REPO_ROOT = Path(__file__).resolve().parent
+FFMPEG_PATH = str(REPO_ROOT / "tools" / "ffmpeg.exe")
+UI_DIST_URI = (REPO_ROOT / "ui_dist" / "index.html").resolve().as_uri()
+
 
 def test_config_endpoint_returns_runtime_config(tmp_path: Path):
     runtime = backend_main.BackendRuntime(base_dir=tmp_path)
@@ -42,7 +46,7 @@ def test_start_endpoint_accepts_parameterized_request(tmp_path: Path, monkeypatc
 
     monkeypatch.setattr(backend_main.threading, "Thread", DummyWorker)
     monkeypatch.setattr(runtime, "refresh_monitor_payload", lambda status_override=None: None)
-    monkeypatch.setattr(backend_main, "find_ffmpeg", lambda: r"E:\codex\usb_cam_dev\tools\ffmpeg.exe")
+    monkeypatch.setattr(backend_main, "find_ffmpeg", lambda: FFMPEG_PATH)
 
     response = client.post(
         "/api/control/start",
@@ -72,7 +76,7 @@ def test_update_config_endpoint_persists_runtime_settings(tmp_path: Path, monkey
     app = backend_main.create_app()
     client = TestClient(app)
 
-    monkeypatch.setattr(backend_main, "find_ffmpeg", lambda: r"E:\codex\usb_cam_dev\tools\ffmpeg.exe")
+    monkeypatch.setattr(backend_main, "find_ffmpeg", lambda: FFMPEG_PATH)
 
     response = client.put(
         "/api/config",
@@ -207,7 +211,7 @@ def test_start_endpoint_stops_preview_before_capture(tmp_path: Path, monkeypatch
     monkeypatch.setattr(runtime, "stop_preview", lambda wait=False: stop_calls.append((wait,)))
     monkeypatch.setattr(runtime, "prepare_capture_session", lambda: tmp_path / "session" / "run_log.txt")
     monkeypatch.setattr(runtime, "refresh_monitor_payload", lambda status_override=None: None)
-    monkeypatch.setattr(backend_main, "find_ffmpeg", lambda: r"E:\codex\usb_cam_dev\tools\ffmpeg.exe")
+    monkeypatch.setattr(backend_main, "find_ffmpeg", lambda: FFMPEG_PATH)
 
     class DummyWorker:
         def __init__(self, target=None, daemon=None):
@@ -246,7 +250,7 @@ def test_build_direct_cmd_includes_preview_pipe_output(tmp_path: Path):
     runtime.capture_context.current_frames_dir = tmp_path / "frames"
     runtime.capture_context.current_frames_dir.mkdir()
 
-    cmd = runtime.build_direct_cmd(r"E:\codex\usb_cam_dev\tools\ffmpeg.exe")
+    cmd = runtime.build_direct_cmd(FFMPEG_PATH)
 
     assert "-progress" in cmd
     assert "pipe:2" in cmd
@@ -260,7 +264,7 @@ def test_build_record_cmd_includes_preview_pipe_output(tmp_path: Path):
     video_path = tmp_path / "video" / "capture.avi"
     video_path.parent.mkdir()
 
-    cmd = runtime.build_record_cmd(r"E:\codex\usb_cam_dev\tools\ffmpeg.exe", video_path)
+    cmd = runtime.build_record_cmd(FFMPEG_PATH, video_path)
 
     assert "-progress" in cmd
     assert "pipe:2" in cmd
@@ -365,7 +369,7 @@ def test_ffmpeg_status_endpoint_reports_current_path(tmp_path: Path, monkeypatch
     app = backend_main.create_app()
     client = TestClient(app)
 
-    monkeypatch.setattr(backend_main, "find_ffmpeg", lambda: r"E:\codex\usb_cam_dev\tools\ffmpeg.exe")
+    monkeypatch.setattr(backend_main, "find_ffmpeg", lambda: FFMPEG_PATH)
 
     response = client.get("/api/system/ffmpeg-status")
 
@@ -373,7 +377,7 @@ def test_ffmpeg_status_endpoint_reports_current_path(tmp_path: Path, monkeypatch
     payload = response.json()
     assert payload["ok"] is True
     assert payload["ffmpeg_found"] is True
-    assert payload["ffmpeg_path"] == r"E:\codex\usb_cam_dev\tools\ffmpeg.exe"
+    assert payload["ffmpeg_path"] == FFMPEG_PATH
 
 
 def test_preview_start_endpoint_enables_preview_and_starts_idle_preview(tmp_path: Path, monkeypatch):
@@ -573,7 +577,7 @@ def test_append_runtime_log_writes_lines(tmp_path: Path):
 
 
 def test_backend_uses_preview_module_without_tkinter_helper():
-    content = Path(r"E:\codex\usb_cam_dev\backend\main.py").read_text(encoding="utf-8")
+    content = (REPO_ROOT / "backend" / "main.py").read_text(encoding="utf-8")
 
     assert "from usb_cam_preview_helpers import prepare_preview_start" not in content
     assert "from usb_cam_preview import build_preview_cmd" in content
@@ -603,7 +607,7 @@ def test_start_capture_reports_ffmpeg_missing_structured_error(tmp_path: Path):
 
 def test_worker_capture_sets_structured_error_when_no_frames(tmp_path: Path, monkeypatch):
     runtime = backend_main.BackendRuntime(base_dir=tmp_path)
-    runtime.ffmpeg_path = r"E:\codex\usb_cam_dev\tools\ffmpeg.exe"
+    runtime.ffmpeg_path = FFMPEG_PATH
     session_dir = tmp_path / "session_001"
     frames_dir = session_dir / "frames"
     video_dir = session_dir / "video"
@@ -612,7 +616,7 @@ def test_worker_capture_sets_structured_error_when_no_frames(tmp_path: Path, mon
     runtime.capture_context.assign_session_paths(session_dir, frames_dir, video_dir)
     runtime.capture_context.set_meta(
         {
-            "ffmpeg": r"E:\codex\usb_cam_dev\tools\ffmpeg.exe",
+            "ffmpeg": FFMPEG_PATH,
             "run_log_path": str(session_dir / "run_log.txt"),
             "exit_codes": [{"direct_frames": 4294967291}],
             "camera_name": "INVALID_CAMERA",
@@ -690,7 +694,7 @@ def test_monitor_endpoint_returns_structured_runtime_snapshot(tmp_path: Path):
 
 def test_worker_capture_sets_runtime_exception_status(tmp_path: Path, monkeypatch):
     runtime = backend_main.BackendRuntime(base_dir=tmp_path)
-    runtime.ffmpeg_path = r"E:\codex\usb_cam_dev\tools\ffmpeg.exe"
+    runtime.ffmpeg_path = FFMPEG_PATH
     session_dir = tmp_path / "session_003"
     frames_dir = session_dir / "frames"
     video_dir = session_dir / "video"
@@ -699,7 +703,7 @@ def test_worker_capture_sets_runtime_exception_status(tmp_path: Path, monkeypatc
     runtime.capture_context.assign_session_paths(session_dir, frames_dir, video_dir)
     runtime.capture_context.set_meta(
         {
-            "ffmpeg": r"E:\codex\usb_cam_dev\tools\ffmpeg.exe",
+            "ffmpeg": FFMPEG_PATH,
             "run_log_path": str(session_dir / "run_log.txt"),
             "exit_codes": [],
             "camera_name": "USB Camera",
@@ -792,12 +796,12 @@ def test_main_starts_webview_without_debug_by_default(monkeypatch):
 
     monkeypatch.delenv("USB_CAM_WEBVIEW_DEBUG", raising=False)
     monkeypatch.setattr(backend_main, "append_runtime_log", lambda *args, **kwargs: None)
-    monkeypatch.setattr(backend_main, "resolve_frontend_target", lambda: "file:///E:/codex/usb_cam_dev/ui_dist/index.html")
+    monkeypatch.setattr(backend_main, "resolve_frontend_target", lambda: UI_DIST_URI)
     monkeypatch.setattr(backend_main.threading, "Thread", DummyThread)
     monkeypatch.setitem(sys.modules, "webview", DummyWebviewModule())
     backend_main.webview_window = None
 
     backend_main.main()
 
-    assert calls["target"] == "file:///E:/codex/usb_cam_dev/ui_dist/index.html"
+    assert calls["target"] == UI_DIST_URI
     assert calls["debug"] is False

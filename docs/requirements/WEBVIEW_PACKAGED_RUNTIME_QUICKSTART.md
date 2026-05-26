@@ -22,7 +22,7 @@
 1. Run:
    - `E:\codex\usb_cam_dev\build.bat`
 2. The script will:
-   - build the frontend in `E:\codex\ui`
+   - build the frontend in `E:\codex\usb_cam_dev\ui`
    - copy static assets into `E:\codex\usb_cam_dev\ui_dist`
    - package `backend\main.py` with PyInstaller
 

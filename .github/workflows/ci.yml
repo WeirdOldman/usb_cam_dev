@@ -26,13 +26,50 @@ jobs:
         with:
           python-version: '3.11'
 
-      - name: Install pytest
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: ui/package-lock.json
+
+      - name: Install frontend dependencies
+        working-directory: ui
+        run: npm ci
+
+      - name: Install Python dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install pytest
+          pip install -r requirements-pywebview.txt pytest
+
+      - name: Build packaged frontend assets
+        if: runner.os == 'Windows'
+        shell: cmd
+        run: build_webview.bat
 
       - name: Verify imports and syntax
-        run: python -m py_compile usb_burst_cam_4k25_manual_v1_6_3.py usb_cam_capture_helpers.py usb_cam_preview_helpers.py usb_cam_queue_helpers.py usb_cam_capture_state.py usb_cam_capture_context.py usb_cam_ui_state.py usb_cam_finalize.py usb_cam_session_finalize.py usb_cam_runtime.py usb_cam_process.py usb_cam_capture.py usb_cam_preview.py usb_cam_ffmpeg.py usb_cam_stats.py usb_cam_session_writer.py usb_cam_paths.py test_usb_cam_refactor.py
+        shell: pwsh
+        run: |
+          python -m py_compile `
+            backend/main.py `
+            usb_cam_capture.py `
+            usb_cam_capture_context.py `
+            usb_cam_capture_helpers.py `
+            usb_cam_capture_state.py `
+            usb_cam_ffmpeg.py `
+            usb_cam_paths.py `
+            usb_cam_preview.py `
+            usb_cam_process.py `
+            usb_cam_real_validation.py `
+            usb_cam_runtime.py `
+            usb_cam_session_finalize.py `
+            usb_cam_session_writer.py `
+            usb_cam_stats.py `
+            usb_cam_stop_prefs.py `
+            usb_cam_ui_state.py `
+            test_build_packaging.py `
+            test_backend_main.py `
+            test_usb_cam_real_validation.py
 
       - name: Run tests
-        run: pytest -q test_usb_cam_refactor.py
+        run: python -m pytest -q test_build_packaging.py test_backend_main.py test_usb_cam_real_validation.py

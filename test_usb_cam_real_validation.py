@@ -35,6 +35,8 @@ from usb_cam_real_validation import (
     validation_disk_floor_env,
 )
 
+REPO_ROOT = Path(__file__).resolve().parent
+
 
 def test_collect_session_artifacts_reports_expected_files(tmp_path: Path):
     session = tmp_path / 'session'
@@ -148,6 +150,7 @@ def test_run_ffmpeg_process_for_duration_requests_stop(monkeypatch):
     assert events["stopped"] is True
 
 
+@pytest.mark.skipif(sys.platform != "win32", reason="build.bat smoke test is Windows-only")
 def test_build_bat_detects_python_and_builds_minimal_script(tmp_path: Path):
     workspace = tmp_path / 'pkg'
     workspace.mkdir()
@@ -162,8 +165,11 @@ def test_build_bat_detects_python_and_builds_minimal_script(tmp_path: Path):
         "print('ok from minimal build script')\n",
         encoding='utf-8',
     )
-    ui_dir = workspace.parent / 'ui'
+    ui_dir = workspace / 'ui'
     ui_dir.mkdir(exist_ok=True)
+    ui_src = ui_dir / 'src'
+    ui_src.mkdir(parents=True, exist_ok=True)
+    (ui_src / 'main.tsx').write_text("console.log('ok');\n", encoding='utf-8')
     ui_dist = ui_dir / 'dist'
     ui_dist.mkdir(parents=True, exist_ok=True)
     (ui_dist / 'index.html').write_text('<!doctype html><title>ok</title>', encoding='utf-8')
