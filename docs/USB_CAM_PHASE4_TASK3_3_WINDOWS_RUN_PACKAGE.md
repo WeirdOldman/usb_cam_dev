@@ -21,8 +21,11 @@ Task 3.3 的目标只有一句话：
 在 Windows 机器上，确认你已经拿到整个项目目录，并且至少能看到：
 
 - `build.bat`
-- `usb_burst_cam_4k25_manual_v1_6_3.py`
-- `test_usb_cam_refactor.py`
+- `backend/main.py`
+- `build_webview.bat`
+- `test_build_packaging.py`
+- `test_backend_main.py`
+- `test_usb_cam_real_validation.py`
 - `docs/USB_CAM_PHASE4_TASK3_1_FIRST_BUILD_GUIDE.md`
 - `docs/USB_CAM_PHASE4_TASK3_2_FIRST_BUILD_RECORD_TEMPLATE.md`
 - `docs/USB_CAM_PACKAGING_VALIDATION_CHECKLIST.md`
@@ -78,23 +81,23 @@ Get-ChildItem .\docs\USB_CAM_PHASE4_TASK3_2_FIRST_BUILD_RECORD_TEMPLATE.md
 ### Step 3：先跑打包前最小验证
 #### 3.1 跑测试
 ```powershell
-py -3 -m pytest -q test_usb_cam_refactor.py
+py -3 -m pytest -q test_build_packaging.py test_backend_main.py test_usb_cam_real_validation.py
 ```
 
 如果没有 `py`：
 
 ```powershell
-python -m pytest -q test_usb_cam_refactor.py
+python -m pytest -q test_build_packaging.py test_backend_main.py test_usb_cam_real_validation.py
 ```
 
 你要记录到 3.2 模板里的内容：
 - 是否通过
-- 输出是否仍为 `20 passed`
+- 输出是否仍为 `123 passed`
 - 如果不是，偏差是什么
 
 #### 3.2 跑语法检查
 ```powershell
-py -3 -m py_compile usb_burst_cam_4k25_manual_v1_6_3.py usb_cam_paths.py usb_cam_preview.py usb_cam_process.py usb_cam_runtime.py usb_cam_ui_state.py usb_cam_finalize.py usb_cam_session_finalize.py usb_cam_session_writer.py usb_cam_capture.py usb_cam_ffmpeg.py usb_cam_stats.py
+py -3 -m py_compile backend/main.py usb_cam_paths.py usb_cam_preview.py usb_cam_process.py usb_cam_runtime.py usb_cam_ui_state.py usb_cam_session_finalize.py usb_cam_session_writer.py usb_cam_capture.py usb_cam_ffmpeg.py usb_cam_stats.py usb_cam_real_validation.py
 ```
 
 如果没报错，就在模板里记“py_compile 通过”。

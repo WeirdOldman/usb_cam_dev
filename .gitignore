@@ -7,6 +7,9 @@ build/
 outputs/
 _validation/
 tools/
+capture_output/
+ui_dist/
+docs/aegis/
 
 *.log
 *.tmp

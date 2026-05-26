@@ -65,9 +65,11 @@ python -m pip install pyinstaller
 确保当前目录就是项目根目录，也就是能看到这些文件：
 
 - `build.bat`
-- `usb_burst_cam_4k25_manual_v1_6_3.py`
-- `usb_cam_paths.py`
-- `test_usb_cam_refactor.py`
+- `backend/main.py`
+- `build_webview.bat`
+- `test_build_packaging.py`
+- `test_backend_main.py`
+- `test_usb_cam_real_validation.py`
 - `docs/USB_CAM_PACKAGING_VALIDATION_CHECKLIST.md`
 
 ---
@@ -79,23 +81,23 @@ python -m pip install pyinstaller
 ### 4.1 自动测试基线
 
 ```powershell
-py -3 -m pytest -q test_usb_cam_refactor.py
+py -3 -m pytest -q test_build_packaging.py test_backend_main.py test_usb_cam_real_validation.py
 ```
 
 或：
 
 ```powershell
-python -m pytest -q test_usb_cam_refactor.py
+python -m pytest -q test_build_packaging.py test_backend_main.py test_usb_cam_real_validation.py
 ```
 
 预期：
 - 测试通过
-- 当前基线应保持和仓库记录一致（当前为 `20 passed`）
+- 当前基线应保持和仓库记录一致（当前为 `123 passed`）
 
 ### 4.2 主程序语法检查
 
 ```powershell
-py -3 -m py_compile usb_burst_cam_4k25_manual_v1_6_3.py usb_cam_paths.py usb_cam_preview.py usb_cam_process.py usb_cam_runtime.py usb_cam_ui_state.py usb_cam_finalize.py usb_cam_session_finalize.py usb_cam_session_writer.py usb_cam_capture.py usb_cam_ffmpeg.py usb_cam_stats.py
+py -3 -m py_compile backend/main.py usb_cam_paths.py usb_cam_preview.py usb_cam_process.py usb_cam_runtime.py usb_cam_ui_state.py usb_cam_session_finalize.py usb_cam_session_writer.py usb_cam_capture.py usb_cam_ffmpeg.py usb_cam_stats.py usb_cam_real_validation.py
 ```
 
 如果没有报错，说明至少没有明显语法问题。
@@ -114,19 +116,22 @@ py -3 -m py_compile usb_burst_cam_4k25_manual_v1_6_3.py usb_cam_paths.py usb_cam
 ### 5.2 `build.bat` 会自动做什么
 当前脚本会自动：
 
-1. 检查入口文件 `usb_burst_cam_4k25_manual_v1_6_3.py` 是否存在
+1. 检查入口文件 `backend/main.py` 是否存在
 2. 自动探测 Python：
    - 先试 `py -3`
    - 再试 `python`
 3. 检查 `PyInstaller` 是否已安装
-4. 清理旧产物：
+4. 先执行 `build_webview.bat` 生成 `ui_dist`
+5. 清理旧产物：
    - `build/`
    - `dist/`
-5. 执行：
+6. 执行：
    - `PyInstaller --noconfirm --clean --windowed --onedir`
-6. 固定输出目录名：
+7. 固定输出目录名：
    - `dist/USB_Cam_4K25/`
-7. 自动创建：
+8. 自动带入：
+   - `ui_dist/`
+9. 自动创建：
    - `dist/USB_Cam_4K25/tools/`
 
 ---

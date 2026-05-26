@@ -47,9 +47,9 @@
 
 出包前至少确认：
 
-- [ ] `pytest -q test_usb_cam_refactor.py` 通过
+- [ ] `python -m pytest -q test_build_packaging.py test_backend_main.py test_usb_cam_real_validation.py` 通过
 - [ ] 相关模块可 `py_compile`
-- [ ] 主程序源码运行能正常打开 GUI
+- [ ] 当前默认桌面入口 `backend/main.py` 可正常启动 packaged runtime
 
 ---
 

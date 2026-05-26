@@ -1,6 +1,6 @@
 # USB Cam 4K25
 
-Windows USB 摄像头采集工具，当前技术路线固定为 **Tkinter + FFmpeg DirectShow + PyInstaller onedir**。
+Windows USB 摄像头采集工具，当前默认桌面主线为 **PyWebView + FastAPI + React + FFmpeg DirectShow + PyInstaller onedir**。
 
 目标不是做一个通用相机框架，而是把现有 `3840x2160 @ 25fps` 采集流程稳定下来，并逐步从单文件工具演进成可维护、可打包、可交付的桌面应用。
 
@@ -33,10 +33,12 @@ Windows USB 摄像头采集工具，当前技术路线固定为 **Tkinter + FFmp
 
 ## 主要文件
 
-### 入口与测试
+### 默认桌面入口与测试
 
-- 主入口：`usb_burst_cam_4k25_manual_v1_6_3.py`
-- 回归测试：`test_usb_cam_refactor.py`
+- 主入口：`backend/main.py`
+- 打包/验证测试：`test_build_packaging.py`
+- WebView/FastAPI 回归测试：`test_backend_main.py`
+- 正式包与真实验证测试：`test_usb_cam_real_validation.py`
 
 ### 当前模块结构
 
@@ -49,9 +51,10 @@ Windows USB 摄像头采集工具，当前技术路线固定为 **Tkinter + FFmp
 - `usb_cam_process.py`：FFmpeg 进程执行与停止
 - `usb_cam_runtime.py`：采集流程编排
 - `usb_cam_ui_state.py`：UI 指标与 queue action
-- `usb_cam_finalize.py`：capture_done 状态收尾
 - `usb_cam_session_finalize.py`：session 结束时产物收尾
-- `usb_cam_capture_helpers.py` / `usb_cam_preview_helpers.py` / `usb_cam_queue_helpers.py`：当前主类外移的辅助逻辑
+- `usb_cam_capture_helpers.py`：采集辅助逻辑
+- `backend/main.py`：PyWebView/FastAPI 入口与运行时 API
+- `usb_cam_real_validation.py`：正式包 smoke / release / summary 验证
 
 更详细的结构说明见：
 
@@ -77,15 +80,12 @@ Windows USB 摄像头采集工具，当前技术路线固定为 **Tkinter + FFmp
 在仓库根目录执行：
 
 ```bash
-python3 -m py_compile \
-  usb_burst_cam_4k25_manual_v1_6_3.py \
+python -m py_compile \
+  backend/main.py \
   usb_cam_capture_helpers.py \
-  usb_cam_preview_helpers.py \
-  usb_cam_queue_helpers.py \
   usb_cam_capture_state.py \
   usb_cam_capture_context.py \
   usb_cam_ui_state.py \
-  usb_cam_finalize.py \
   usb_cam_session_finalize.py \
   usb_cam_runtime.py \
   usb_cam_process.py \
@@ -97,10 +97,11 @@ python3 -m py_compile \
   usb_cam_paths.py \
   usb_cam_stop_prefs.py \
   usb_cam_real_validation.py \
-  test_usb_cam_refactor.py \
+  test_build_packaging.py \
+  test_backend_main.py \
   test_usb_cam_real_validation.py
 
-pytest -q test_usb_cam_refactor.py test_usb_cam_real_validation.py
+pytest -q test_build_packaging.py test_backend_main.py test_usb_cam_real_validation.py
 ```
 
 ## 打包
@@ -120,16 +121,20 @@ build.bat
 ### 打包关键点
 
 - App 名称：`USB_Cam_4K25`
-- 主入口：`usb_burst_cam_4k25_manual_v1_6_3.py`
+- 主入口：`backend/main.py`
 - spec 文件：`USB_Cam_4K25.spec`
 - 打包输出目录默认：`dist/USB_Cam_4K25/`
-- 如果要随包分发便携 FFmpeg，放到：
+- 前端静态资源打包到：
+  - `dist/USB_Cam_4K25/_internal/ui_dist/`
+- 便携 FFmpeg 自动复制到：
   - `dist/USB_Cam_4K25/tools/ffmpeg.exe`
 
 ### 打包后验证
 
 参考：
 
+- `docs/requirements/WEBVIEW_PACKAGED_RUNTIME_QUICKSTART.md`
+- `docs/requirements/WEBVIEW_PACKAGED_RUNTIME_FINAL_VALIDATION_2026-05-25.md`
 - `docs/USB_CAM_PACKAGING_VALIDATION_CHECKLIST.md`
 - `docs/USB_CAM_MANUAL_VALIDATION_CHECKLIST.md`
 - `docs/USB_CAM_PHASE4_TASK3_1_FIRST_BUILD_GUIDE.md`
@@ -145,22 +150,23 @@ build.bat
 - `main` 分支建立
 - GitHub 托管接通
 - 核心逻辑完成一轮渐进式模块化拆分
-- 自动回归测试可运行
+- 当前有效自动回归测试可运行
+- `2026-05-26` 正式包重打与 packaged validation 已再次通过
 
 当前更适合继续做的是：
 
-1. README / 文档口径统一
+1. 清理当前工作树中的提交边界并准备最新版交付提交
 2. 长时间采集稳定性增强
-3. 打包回归验证与后续 soak
+3. Tk legacy 界面的退役与清理
 4. 后续 issue 化管理
 
 ## 开发原则
 
 这个项目当前遵循的原则：
 
-- 先保留 Tkinter + FFmpeg 路线
-- 先稳主链路，再谈 UI 框架迁移
-- 先拆纯后端，再拆 UI 壳层
+- 新桌面主线优先：PyWebView + FastAPI + React
+- Tk 界面只作为 legacy 参考，不再作为默认入口
+- 先稳主链路，再清理 legacy UI 残留
 - 小步重构，每一步都要能回归验证
 - 不在结构整理时顺手扩功能
 

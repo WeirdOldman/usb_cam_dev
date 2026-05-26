@@ -2,10 +2,10 @@
 
 
 a = Analysis(
-    ['usb_burst_cam_4k25_manual_v1_6_3.py'],
+    ['backend\\main.py'],
     pathex=[],
     binaries=[],
-    datas=[],
+    datas=[('ui_dist', 'ui_dist')],
     hiddenimports=[],
     hookspath=[],
     hooksconfig={},

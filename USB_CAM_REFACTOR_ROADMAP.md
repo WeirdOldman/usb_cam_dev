@@ -2,11 +2,11 @@
 
 > **For Hermes:** 按阶段推进，不要一次性全量重写 UI 框架。先稳采集主链路，再拆结构，再规范打包，最后再评估 PySide6 迁移。
 
-**Goal:** 把当前 `usb_burst_cam_4k25_manual_v1_6_3.py` 从“可用单文件工具”演进成“适合长期维护和正式发布的 Windows 摄像头采集软件”。
+**Goal:** 把当前项目从“Tk 单文件工具”彻底演进成“基于 PyWebView + FastAPI + React 的可长期维护、可正式发布的 Windows 摄像头采集软件”。
 
-**Architecture:** 先保留 Tkinter + FFmpeg 技术路线，优先做稳定性、统计性能、长时间采集保护和代码分层；等后端模块稳定后，再决定是否迁移到 PySide6。这样能避免在主流程刚稳定时同时更换 UI、线程模型和打包方式导致回归。
+**Architecture:** 当前默认桌面主线已经切换为 `PyWebView + FastAPI + React + FFmpeg`。后续工作的重点不再是保留 Tk 作为主入口，而是继续验证新桌面主线、补齐运行期护栏，并逐步退役 Tk legacy UI。
 
-**Tech Stack:** Python 3.10+, Tkinter（当前阶段保留）, FFmpeg DirectShow, threading + queue, PyInstaller `--onedir`, Inno Setup（后续）, 可选 PySide6（后续阶段评估）
+**Tech Stack:** Python 3.10+, PyWebView, FastAPI, React/Vite, FFmpeg DirectShow, threading + queue, PyInstaller `--onedir`, Inno Setup（后续）, Tk legacy UI（待退役）
 
 ---
 
@@ -16,7 +16,8 @@
 
 - 摄像头能力固定为 `3840x2160 @ 25fps`
 - 主采集路线固定为 `FFmpeg DirectShow + MJPEG`
-- GUI 当前为 Tkinter 单文件实现
+- 当前默认桌面入口为 `backend/main.py`
+- Tkinter 单文件实现保留为 legacy 参考，不再作为默认桌面入口
 - 已支持：预览、开始/停止采集、直接图片序列、先录视频再拆帧、metadata/summary/log 输出
 - 已针对长时间采集开始做统计优化：实时统计从高频全量扫描改为低频缓存 + 结束全量校准
 
@@ -495,4 +496,4 @@ PySide6 + Python backend + PyInstaller --onedir + Inno Setup
 
 ## 一句话结论
 
-**当前项目最优路线不是立刻重写成 PySide6，而是：先稳住 Tkinter + FFmpeg 主链路，先模块化、测试化、标准化打包，等后端成熟后再把 PySide6 作为第二阶段产品化升级。**
+**当前项目最优路线不再是继续围绕 Tk 做增强，而是：以 `PyWebView + FastAPI + React + FFmpeg` 作为默认主线继续推进，完成 packaged runtime 验证后再正式退役 Tk legacy UI。**

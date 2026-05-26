@@ -45,9 +45,9 @@
 
 ### 3.1 打包前基线
 - [ ] `build.bat` 已存在
-- [ ] 主入口确认无误：`usb_burst_cam_4k25_manual_v1_6_3.py`
-- [ ] `pytest -q test_usb_cam_refactor.py` 已通过
-- [ ] 当前自动测试基线记录为：`20 passed`
+- [ ] 主入口确认无误：`backend/main.py`
+- [ ] `python -m pytest -q test_build_packaging.py test_backend_main.py test_usb_cam_real_validation.py` 已通过
+- [ ] 当前自动测试基线记录为：`123 passed`
 - [ ] `py_compile` 已通过
 
 记录：
