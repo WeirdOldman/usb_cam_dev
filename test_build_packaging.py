@@ -57,11 +57,22 @@ def test_build_bat_has_explicit_python311_fallback():
     assert r"C:\Users\Administrator\AppData\Local\Programs\Python\Python311\python.exe" in content
 
 
+def test_build_bat_honors_github_python_env_before_local_fallbacks():
+    content = (REPO_ROOT / "build.bat").read_text(encoding="utf-8")
+
+    assert "if defined pythonLocation" in content
+    assert "if defined Python3_ROOT_DIR" in content
+    assert "if defined Python_ROOT_DIR" in content
+
+
 def test_build_bat_prefers_python_before_py_launcher_fallback():
     content = (REPO_ROOT / "build.bat").read_text(encoding="utf-8")
 
+    github_env_index = content.index("if defined pythonLocation")
+    local_fallback_index = content.index(r'C:\Users\Administrator\AppData\Local\Programs\Python\Python311\python.exe')
     python_index = content.index('python --version >nul 2>nul')
     py_launcher_index = content.index('py -3 --version >nul 2>nul')
+    assert github_env_index < local_fallback_index
     assert python_index < py_launcher_index
 
 

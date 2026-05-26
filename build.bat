@@ -30,6 +30,30 @@ if not exist "%ENTRY_SCRIPT%" (
 
 set "PY_CMD="
 if not defined PY_CMD (
+  if defined pythonLocation (
+    if exist "%pythonLocation%\python.exe" (
+      set "PY_CMD=%pythonLocation%\python.exe"
+    )
+  )
+)
+
+if not defined PY_CMD (
+  if defined Python3_ROOT_DIR (
+    if exist "%Python3_ROOT_DIR%\python.exe" (
+      set "PY_CMD=%Python3_ROOT_DIR%\python.exe"
+    )
+  )
+)
+
+if not defined PY_CMD (
+  if defined Python_ROOT_DIR (
+    if exist "%Python_ROOT_DIR%\python.exe" (
+      set "PY_CMD=%Python_ROOT_DIR%\python.exe"
+    )
+  )
+)
+
+if not defined PY_CMD (
   if exist "C:\Users\Administrator\AppData\Local\Programs\Python\Python311\python.exe" (
     set "PY_CMD=C:\Users\Administrator\AppData\Local\Programs\Python\Python311\python.exe"
   )
