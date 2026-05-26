@@ -50,7 +50,7 @@ if not exist "%UI_DIR%\node_modules" (
 if exist "%PACKAGED_BUILD_OUT%" rmdir /s /q "%PACKAGED_BUILD_OUT%"
 mkdir "%PACKAGED_BUILD_OUT%"
 mkdir "%PACKAGED_BUILD_OUT%\assets"
-call npm run build -- --configLoader native --outDir "%PACKAGED_BUILD_NAME%" --emptyOutDir false
+call npm run build -- --outDir "%PACKAGED_BUILD_NAME%" --emptyOutDir false
 if errorlevel 1 (
   echo [ERROR] Frontend build failed.
   exit /b 1

@@ -36,16 +36,16 @@ if not defined PY_CMD (
 )
 
 if not defined PY_CMD (
-  py -3 --version >nul 2>nul
+  python --version >nul 2>nul
   if not errorlevel 1 (
-    set "PY_CMD=py -3"
+    set "PY_CMD=python"
   )
 )
 
 if not defined PY_CMD (
-  python --version >nul 2>nul
+  py -3 --version >nul 2>nul
   if not errorlevel 1 (
-    set "PY_CMD=python"
+    set "PY_CMD=py -3"
   )
 )
 

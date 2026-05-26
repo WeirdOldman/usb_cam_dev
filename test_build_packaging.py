@@ -38,7 +38,7 @@ def test_build_webview_script_targets_ui_dist_output():
     assert r"node_modules\vite\bin\vite.js" in content
     assert "npm ci" in content
     assert "npm run build" in content
-    assert "--configLoader native" in content
+    assert "--configLoader native" not in content
     assert "PACKAGED_BUILD_NAME=dist_packaged_runtime_" in content
 
 
@@ -55,6 +55,14 @@ def test_build_bat_has_explicit_python311_fallback():
     content = (REPO_ROOT / "build.bat").read_text(encoding="utf-8")
 
     assert r"C:\Users\Administrator\AppData\Local\Programs\Python\Python311\python.exe" in content
+
+
+def test_build_bat_prefers_python_before_py_launcher_fallback():
+    content = (REPO_ROOT / "build.bat").read_text(encoding="utf-8")
+
+    python_index = content.index('python --version >nul 2>nul')
+    py_launcher_index = content.index('py -3 --version >nul 2>nul')
+    assert python_index < py_launcher_index
 
 
 def test_build_bat_explains_dist_lock_failure():
