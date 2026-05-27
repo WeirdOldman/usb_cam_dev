@@ -27,8 +27,8 @@
 
 关键证据见：
 
-- `docs/requirements/WEBVIEW_PACKAGED_RUNTIME_QUICKSTART.md`
-- `docs/requirements/WEBVIEW_PACKAGED_RUNTIME_FINAL_VALIDATION_2026-05-26.md`
+- `docs/requirements/PACKAGED_RUNTIME_QUICKSTART.md`
+- `docs/requirements/PACKAGED_RUNTIME_FINAL_VALIDATION_2026-05-26.md`
 - `docs/USB_CAM_PACKAGING_VALIDATION_CHECKLIST.md`
 
 现行验证口径覆盖：

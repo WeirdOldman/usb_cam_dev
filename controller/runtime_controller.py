@@ -12,7 +12,7 @@ from typing import Callable
 
 import psutil
 
-from backend.runtime_capture import (
+from controller.runtime_capture import (
     apply_config_update as apply_runtime_config_update,
     classify_capture_failure as classify_runtime_capture_failure,
     prepare_capture_session as prepare_runtime_capture_session,
@@ -21,7 +21,7 @@ from backend.runtime_capture import (
     update_control_settings as update_runtime_control_settings,
     worker_capture as run_runtime_capture_worker,
 )
-from backend.runtime_monitor import (
+from controller.runtime_monitor import (
     append_runtime_event,
     capture_phase_payload as runtime_capture_phase_payload,
     idle_status_text as runtime_idle_status_text,

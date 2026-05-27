@@ -137,7 +137,7 @@ if exist "%SOURCE_FFMPEG%" (
 
 echo.
 echo [OK] Build completed.
-echo [NEXT] Validate packaged runtime with docs\requirements\WEBVIEW_PACKAGED_RUNTIME_QUICKSTART.md
+echo [NEXT] Validate packaged runtime with docs\requirements\PACKAGED_RUNTIME_QUICKSTART.md
 echo [NEXT] Default packaged smoke report:
 echo        outputs\packaged_runtime\packaged_runtime_smoke_report.json
 echo [NEXT] Minimum release target:

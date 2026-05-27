@@ -93,9 +93,9 @@
   - 当前稳定性与验证边界
 - `docs/USB_CAM_PACKAGED_RUNTIME_PLAYBOOK.md`
   - packaged runtime 操作口径
-- `docs/requirements/WEBVIEW_PACKAGED_RUNTIME_QUICKSTART.md`
+- `docs/requirements/PACKAGED_RUNTIME_QUICKSTART.md`
   - packaged runtime 快速验证口径
-- `docs/requirements/WEBVIEW_PACKAGED_RUNTIME_FINAL_VALIDATION_2026-05-26.md`
+- `docs/requirements/PACKAGED_RUNTIME_FINAL_VALIDATION_2026-05-26.md`
   - 最新正式包验证记录
 
 ## 本地依赖边界
