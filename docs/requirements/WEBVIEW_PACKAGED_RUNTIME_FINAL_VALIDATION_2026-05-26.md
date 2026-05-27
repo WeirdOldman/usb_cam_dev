@@ -1,8 +1,9 @@
-# WebView Packaged Runtime Final Validation 2026-05-26
+# Historical WebView Packaged Runtime Final Validation 2026-05-26
 
 ## Result
 
-Packaged `PyWebView + FastAPI + React` runtime validation passed again after the latest Chinese UI completion and packaged frontend refresh.
+这份记录保存的是 **旧 WebView packaged runtime** 的历史验证结果。
+当前仓库默认主线已经迁移到 `PySide6 + RuntimeController`，本文件仅作为历史证据保留，不再定义当前运行时架构。
 
 ## Build Artifact
 
@@ -59,3 +60,5 @@ Packaged `PyWebView + FastAPI + React` runtime validation passed again after the
 
 - The first failed attempt in this session was caused by concurrent validation commands competing for the same packaged process and port `127.0.0.1:8000`, not by a packaged runtime regression.
 - After clearing residual `USB_Cam_4K25.exe` processes and rerunning the validations serially, all packaged validation paths passed.
+- The current packaged runtime should be interpreted as `system window + Web content area`, not as a frameless custom desktop shell.
+- Window controls belong to the OS title bar. Product UI documentation and Figma main screens should not duplicate minimize / maximize / close buttons inside the Web page.

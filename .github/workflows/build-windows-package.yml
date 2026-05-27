@@ -22,29 +22,20 @@ jobs:
         with:
           python-version: '3.11'
 
-      - name: Set up Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-          cache: 'npm'
-          cache-dependency-path: ui/package-lock.json
-
-      - name: Install frontend dependencies
-        shell: pwsh
-        working-directory: ui
-        run: npm ci
-
       - name: Install build and test dependencies
         shell: pwsh
         run: |
           python -m pip install --upgrade pip
-          pip install -r requirements-pywebview.txt pytest pyinstaller
+          pip install -r requirements-desktop.txt pytest pyinstaller
 
       - name: Verify imports and syntax
         shell: pwsh
         run: |
           python -m py_compile `
-            backend/main.py `
+            desktop/main.py `
+            desktop/automation.py `
+            controller/contracts.py `
+            controller/runtime_controller.py `
             usb_cam_capture_helpers.py `
             usb_cam_capture_state.py `
             usb_cam_capture_context.py `
@@ -59,13 +50,17 @@ jobs:
             usb_cam_session_writer.py `
             usb_cam_paths.py `
             usb_cam_real_validation.py `
+            usb_cam_validation_capture.py `
+            usb_cam_validation_packaged.py `
+            usb_cam_validation_reports.py `
             test_build_packaging.py `
-            test_backend_main.py `
+            test_runtime_controller.py `
+            test_desktop_main.py `
             test_usb_cam_real_validation.py
 
       - name: Run tests
         shell: pwsh
-        run: python -m pytest -q test_build_packaging.py test_backend_main.py test_usb_cam_real_validation.py
+        run: python -m pytest -q test_build_packaging.py test_runtime_controller.py test_desktop_main.py test_usb_cam_real_validation.py
 
       - name: Build Windows package
         shell: cmd

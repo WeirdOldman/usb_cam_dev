@@ -1,22 +1,21 @@
 @echo off
 setlocal EnableExtensions
 
-REM USB_CAM PyWebView/FastAPI portable packaging entry (Windows / PyInstaller --onedir)
+REM USB_CAM PySide6 portable packaging entry (Windows / PyInstaller --onedir)
 REM Scope locked:
 REM - onedir only
-REM - package backend/main.py as the desktop entry
-REM - include built frontend static assets from ui_dist
+REM - package desktop/main.py as the desktop entry
+REM - no web frontend build step
 
 set "SCRIPT_DIR=%~dp0"
 cd /d "%SCRIPT_DIR%"
 
 set "APP_NAME=USB_Cam_4K25"
-set "ENTRY_SCRIPT=backend\main.py"
+set "ENTRY_SCRIPT=desktop\main.py"
 set "DIST_DIR=dist"
 set "BUILD_DIR=build"
 set "OUTPUT_DIR=%DIST_DIR%\%APP_NAME%"
 set "TOOLS_DIR=%OUTPUT_DIR%\tools"
-set "FRONTEND_DIST_DIR=ui_dist"
 set "SOURCE_FFMPEG=%SCRIPT_DIR%tools\ffmpeg.exe"
 
 echo [INFO] Workspace: %SCRIPT_DIR%
@@ -94,13 +93,6 @@ if not errorlevel 1 (
   exit /b 1
 )
 
-echo [INFO] Preparing packaged frontend assets...
-call "%SCRIPT_DIR%build_webview.bat"
-if errorlevel 1 (
-  echo [ERROR] Frontend packaging preparation failed.
-  exit /b 1
-)
-
 echo [INFO] Cleaning previous build artifacts...
 if exist "%BUILD_DIR%" rmdir /s /q "%BUILD_DIR%"
 if exist "%DIST_DIR%" rmdir /s /q "%DIST_DIR%"
@@ -116,8 +108,8 @@ echo [INFO] Running PyInstaller --onedir build...
   --clean ^
   --windowed ^
   --onedir ^
+  --specpath "%BUILD_DIR%" ^
   --name "%APP_NAME%" ^
-  --add-data "ui_dist;ui_dist" ^
   "%ENTRY_SCRIPT%"
 
 if errorlevel 1 (

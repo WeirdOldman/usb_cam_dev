@@ -4,18 +4,18 @@
 
 本文档描述 `usb_cam_dev` 当前默认桌面主线的稳定性策略，适用范围是：
 
-- `PyWebView + FastAPI + React`
-- `backend/main.py` 作为默认桌面入口
+- `PySide6 + RuntimeController`
+- `desktop/main.py` 作为默认桌面入口
 - `FFmpeg DirectShow + MJPEG`
 - `PyInstaller --onedir`
 
-本文档不讨论旧 Tk 入口的保留策略；当前仓库的稳定性口径已经切到现行 WebView runtime。
+当前仓库的稳定性口径已经完全切到现行 PySide6 runtime。
 
 ## 当前稳定性目标
 
 当前阶段的目标不是扩功能，而是让已经验证通过的采集链路更稳、更可观测、更容易交付。
 
-默认仍保留这些产品边界：
+默认仍保持这些产品边界：
 
 - 固定 `3840x2160 @ 25fps`
 - 固定 `FFmpeg DirectShow + MJPEG`
@@ -25,7 +25,7 @@
 
 ## 当前已验证基线
 
-当前基线以新的 packaged runtime 为准，关键证据见：
+关键证据见：
 
 - `docs/requirements/WEBVIEW_PACKAGED_RUNTIME_QUICKSTART.md`
 - `docs/requirements/WEBVIEW_PACKAGED_RUNTIME_FINAL_VALIDATION_2026-05-26.md`
@@ -43,16 +43,18 @@
 
 ## 当前稳定性 owner
 
-当前稳定性相关逻辑主要分布在这些文件：
+稳定性相关逻辑主要分布在这些文件：
 
-- `backend/main.py`
-  - 运行时入口、控制 API、WebSocket 推送
+- `desktop/main.py`
+  - 运行时入口与桌面 automation
+- `controller/runtime_controller.py`
+  - 控制、快照、预览、采集与错误
 - `usb_cam_capture_helpers.py`
-  - 采集执行中的日志、异常和 timer tick
+  - 采集中日志、异常与 timer tick
 - `usb_cam_stop_prefs.py`
   - AutoStop 默认参数
 - `usb_cam_runtime.py`
-  - 采集 metadata 与模式编排
+  - metadata 与模式编排
 - `usb_cam_session_finalize.py`
   - 结束收尾与产物落盘
 - `usb_cam_ui_state.py`
@@ -62,7 +64,7 @@
 
 ## AutoStop 策略
 
-当前 AutoStop 目标很保守：不是追求“聪明”，而是避免长时间采集在明显风险出现后继续静默运行。
+当前 AutoStop 目标仍然保守：不是追求“聪明”，而是避免长时间采集在明显风险出现后继续静默运行。
 
 当前默认启用的保护规则：
 
@@ -74,18 +76,18 @@
 - `max_duration_s`
 - `min_effective_fps_ratio`
 
-原因很简单：
+原因：
 
 - 磁盘硬阈值是最稳定、最容易解释的安全信号
-- 时长上限与 FPS 阈值更容易误伤真实业务录制
-- 它们需要更强的真实设备证据，才能升级成默认规则
+- 时长上限与 FPS 阈值更容易误伤真实录制
+- 它们需要更强的真实设备证据，才适合升成默认规则
 
 ## 运行时可观测性要求
 
 任何稳定性改动，都不应削弱这些基础可观测性：
 
-- 当前阶段与状态文本能从 UI 读到
-- 最新事件流能从 WebSocket 和事件列表读到
+- 当前阶段与状态文本能从桌面 UI 读到
+- 事件流能从 controller snapshot 读到
 - `metadata.json`、`summary.txt`、`frames.csv` 能落盘
 - packaged validation report / manifest / checklist 能输出
 
@@ -101,7 +103,7 @@
 - preview / capture 时序变化
 - `video_then_frames` 输出语义变化
 - packaged runtime 构建脚本变化
-- 前端监控状态字段变化
+- controller snapshot 字段变化
 
 最低重放口径：
 
@@ -118,10 +120,10 @@
 
 当前项目的稳定性原则保持为：
 
-1. 先让现行 WebView runtime 更可观测
+1. 先让现行 PySide6 runtime 更可观测
 2. 再增加简单、明确、可解释的安全停机
 3. 最后才考虑更重的结构或存储策略变化
 
 一句话总结：
 
-**当前稳定性策略是：保持已验证的 `backend/main.py` 主线不漂移，优先增强可观测性，并且只在证据充足时才扩大自动停机默认规则。**
+**当前稳定性策略是：保持已验证的 `desktop/main.py + controller/runtime_controller.py` 主线不漂移，优先增强可观测性，并且只在证据充足时才扩大自动停机默认规则。**

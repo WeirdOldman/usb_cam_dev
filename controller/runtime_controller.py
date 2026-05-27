@@ -1,31 +1,17 @@
 from __future__ import annotations
 
+import os
 import queue
 import subprocess
-import sys
 import threading
 import time
-from dataclasses import dataclass, field
+from dataclasses import asdict, dataclass, field
 from datetime import datetime
 from pathlib import Path
-import os
+from typing import Callable
 
 import psutil
-from fastapi import FastAPI, HTTPException
 
-
-PROJECT_ROOT = Path(__file__).resolve().parent.parent
-if str(PROJECT_ROOT) not in sys.path:
-    sys.path.insert(0, str(PROJECT_ROOT))
-
-from backend.runtime_api import (
-    RuntimeApiConfig,
-    RuntimeConfigResponse,
-    SelectOutputDirRequest,
-    StartCaptureRequest,
-    UpdateConfigRequest,
-    create_runtime_app,
-)
 from backend.runtime_capture import (
     apply_config_update as apply_runtime_config_update,
     classify_capture_failure as classify_runtime_capture_failure,
@@ -35,21 +21,8 @@ from backend.runtime_capture import (
     update_control_settings as update_runtime_control_settings,
     worker_capture as run_runtime_capture_worker,
 )
-from backend.runtime_host import (
-    append_runtime_log as write_runtime_log,
-    open_path_in_system,
-    query_camera_devices,
-    require_window as require_runtime_window,
-    resolve_frontend_target as resolve_frontend_runtime_target,
-    resolve_webview_debug_mode as read_webview_debug_mode,
-    run_api_server as serve_runtime_api,
-    select_output_directory,
-    wait_for_frontend_ready as wait_for_frontend_runtime,
-)
 from backend.runtime_monitor import (
     append_runtime_event,
-    build_control_config,
-    build_monitor_payload as build_runtime_monitor_payload,
     capture_phase_payload as runtime_capture_phase_payload,
     idle_status_text as runtime_idle_status_text,
     preview_status_text as runtime_preview_status_text,
@@ -57,6 +30,15 @@ from backend.runtime_monitor import (
     refresh_monitor_payload as refresh_runtime_monitor_payload,
     snapshot as snapshot_runtime_monitor,
     ui_locks as runtime_ui_locks,
+)
+from controller.contracts import (
+    ActionResult,
+    RuntimeConfig,
+    RuntimeConfigPatch,
+    RuntimeEvent,
+    RuntimeSnapshot,
+    RuntimeUiLocks,
+    StartCaptureRequest,
 )
 from usb_cam_capture import build_extract_cmd
 from usb_cam_capture_context import CaptureContext
@@ -70,7 +52,7 @@ from usb_cam_capture_helpers import (
     update_capture_timer_tick,
 )
 from usb_cam_capture_state import CaptureState
-from usb_cam_paths import app_base_dir, find_ffmpeg, safe_image_prefix
+from usb_cam_paths import find_ffmpeg, safe_image_prefix
 from usb_cam_preview import build_preview_cmd, read_preview_frames, start_preview_process, stop_preview_process
 from usb_cam_process import (
     parse_ffmpeg_progress_line,
@@ -85,28 +67,6 @@ from usb_cam_stop_prefs import default_auto_stop_prefs
 from usb_cam_ui_state import update_capture_metrics
 
 
-API_HOST = "127.0.0.1"
-API_PORT = 8000
-FRONTEND_DEV_URL = "http://localhost:5173"
-FRONTEND_DIST_DIR = PROJECT_ROOT / "ui_dist"
-RUNTIME_LOG_PATH = PROJECT_ROOT / "webview_runtime.log"
-MJPEG_PATH = "/api/video/mjpeg"
-WS_PATH = "/ws/monitor"
-CONTROL_START_PATH = "/api/control/start"
-CONTROL_STOP_PATH = "/api/control/stop"
-CONFIG_PATH = "/api/config"
-SELECT_OUTPUT_DIR_PATH = "/api/dialog/select-output-dir"
-WINDOW_MINIMIZE_PATH = "/api/window/minimize"
-WINDOW_TOGGLE_MAXIMIZE_PATH = "/api/window/toggle-maximize"
-WINDOW_CLOSE_PATH = "/api/window/close"
-OPEN_OUTPUT_DIR_PATH = "/api/system/open-output-dir"
-FFMPEG_STATUS_PATH = "/api/system/ffmpeg-status"
-PREVIEW_START_PATH = "/api/preview/start"
-PREVIEW_STOP_PATH = "/api/preview/stop"
-EVENTS_PATH = "/api/events"
-CAMERA_DEVICES_PATH = "/api/devices/cameras"
-MONITOR_PATH = "/api/monitor"
-APP_NAME = "usb_cam_pywebview_demo"
 WIDTH = 3840
 HEIGHT = 2160
 FPS = 25
@@ -115,6 +75,7 @@ MAX_LOG_BYTES = 10 * 1024 * 1024
 PREVIEW_WIDTH = 480
 PREVIEW_FPS = 3
 UNKNOWN_ACCELERATION = "Unknown"
+APP_NAME = "usb_cam_pyside6"
 
 
 class LimitedLogWriter:
@@ -147,7 +108,7 @@ class LimitedLogWriter:
 
 
 @dataclass
-class BackendRuntime:
+class RuntimeController:
     base_dir: Path
     camera_name: str = DEFAULT_CAMERA_NAME
     image_prefix: str = "img"
@@ -175,12 +136,27 @@ class BackendRuntime:
     capture_last_error_reason: str | None = None
     capture_last_error_code: int | None = None
     capture_last_session_dir: str | None = None
+    _thread_factory: Callable[..., threading.Thread] = threading.Thread
+    _directory_selector: Callable[[str], str | None] | None = None
 
     def __post_init__(self):
+        self.base_dir = Path(self.base_dir)
         self.output_dir = self.base_dir / "capture_output"
-        self.ffmpeg_path = find_ffmpeg() or ""
+        self.ffmpeg_path = self._find_ffmpeg() or ""
         self.append_event("system", "System initialized.")
         self.last_monitor_payload = self.build_monitor_payload()
+
+    def _find_ffmpeg(self) -> str | None:
+        return find_ffmpeg()
+
+    def validate_runtime_options(self, mode: str, quality_mode: str) -> None:
+        if mode not in {"direct_frames", "video_then_frames"}:
+            raise ValueError("Unsupported mode")
+        if quality_mode not in {"copy", "q2"}:
+            raise ValueError("Unsupported quality_mode")
+
+    def set_directory_selector(self, selector: Callable[[str], str | None]) -> None:
+        self._directory_selector = selector
 
     def append_event(self, kind: str, message: str):
         append_runtime_event(self, kind, message)
@@ -276,26 +252,75 @@ class BackendRuntime:
     def recent_events(self):
         return recent_runtime_events(self)
 
-    def control_config(self) -> dict:
-        return build_control_config(
-            self,
-            api_host=API_HOST,
-            api_port=API_PORT,
-            frontend_dev_url=FRONTEND_DEV_URL,
-            mjpeg_path=MJPEG_PATH,
-            ws_path=WS_PATH,
-            control_start_path=CONTROL_START_PATH,
-            control_stop_path=CONTROL_STOP_PATH,
-            preview_start_path=PREVIEW_START_PATH,
-            preview_stop_path=PREVIEW_STOP_PATH,
-            auto_stop_prefs_fn=default_auto_stop_prefs,
+    def load_config(self) -> RuntimeConfig:
+        return RuntimeConfig(
+            camera_name=self.camera_name,
+            output_dir=str(self.output_dir),
+            image_prefix=self.image_prefix,
+            mode=self.mode,
+            quality_mode=self.quality_mode,
+            delete_video_after_extract=self.delete_video_after_extract,
+            ffmpeg_path=self.ffmpeg_path or "",
+            base_dir=str(self.base_dir),
+            auto_stop=default_auto_stop_prefs(),
         )
 
-    def update_control_settings(self, request: StartCaptureRequest):
-        update_runtime_control_settings(self, request, find_ffmpeg_fn=lambda: find_ffmpeg() or "")
+    def control_config(self) -> dict:
+        return asdict(self.load_config())
 
-    def apply_config_update(self, request: UpdateConfigRequest):
-        apply_runtime_config_update(self, request, find_ffmpeg_fn=lambda: find_ffmpeg() or "")
+    def _to_ui_locks(self) -> RuntimeUiLocks:
+        return RuntimeUiLocks(**runtime_ui_locks(self))
+
+    def _to_events(self) -> list[RuntimeEvent]:
+        return [RuntimeEvent(**event) for event in self.recent_events()]
+
+    def _to_snapshot(self, payload: dict | None = None) -> RuntimeSnapshot:
+        current = payload or snapshot_runtime_monitor(self)
+        return RuntimeSnapshot(
+            running=bool(current.get("running")),
+            capture_phase=str(current.get("capture_phase", "idle")),
+            runtime_seconds=int(current.get("runtime_seconds", 0)),
+            fps=float(current.get("fps", 0.0)),
+            cpu_percent=float(current.get("cpu_percent", 0.0)),
+            processed_frames=int(current.get("processed_frames", 0)),
+            acceleration=str(current.get("acceleration", "Idle")),
+            bitrate_mbps=float(current.get("bitrate_mbps", 0.0)),
+            resolution=str(current.get("resolution", f"{WIDTH}x{HEIGHT}")),
+            status_text=str(current.get("status_text", "Stopped")),
+            capture_last_error=current.get("capture_last_error"),
+            capture_last_error_reason=current.get("capture_last_error_reason"),
+            capture_last_error_code=current.get("capture_last_error_code"),
+            capture_last_session_dir=current.get("capture_last_session_dir"),
+            preview_enabled=bool(current.get("preview_enabled")),
+            preview_active=bool(current.get("preview_active")),
+            preview_status=str(current.get("preview_status", "Preview stopped.")),
+            ui_locks=self._to_ui_locks(),
+            events=self._to_events(),
+            timestamp=str(current.get("timestamp", "")),
+            config=self.load_config(),
+        )
+
+    def _snapshot_from_action_payload(self, payload: dict) -> RuntimeSnapshot:
+        current = dict(self.last_monitor_payload or self.build_monitor_payload())
+        for key in (
+            "running",
+            "capture_phase",
+            "status_text",
+            "capture_last_error",
+            "capture_last_error_reason",
+            "capture_last_error_code",
+            "capture_last_session_dir",
+        ):
+            if key in payload:
+                current[key] = payload[key]
+        current["config"] = self.control_config()
+        return self._to_snapshot(current)
+
+    def update_control_settings(self, request: StartCaptureRequest):
+        update_runtime_control_settings(self, request, find_ffmpeg_fn=lambda: self._find_ffmpeg() or "")
+
+    def apply_config_update(self, request: RuntimeConfigPatch):
+        apply_runtime_config_update(self, request, find_ffmpeg_fn=lambda: self._find_ffmpeg() or "")
 
     def prepare_capture_session(self):
         return prepare_runtime_capture_session(
@@ -336,18 +361,6 @@ class BackendRuntime:
     def set_latest_preview_frame(self, frame_bytes: bytes):
         self.latest_preview_frame = frame_bytes
 
-    def preview_frame_to_jpeg(self, frame_bytes: bytes) -> bytes | None:
-        import cv2
-        import numpy as np
-
-        decoded = cv2.imdecode(np.frombuffer(frame_bytes, dtype=np.uint8), cv2.IMREAD_COLOR)
-        if decoded is None:
-            return None
-        ok, encoded = cv2.imencode(".jpg", decoded)
-        if not ok:
-            return None
-        return encoded.tobytes()
-
     def ensure_preview_running(self):
         with self.preview_lock:
             if not self.preview_enabled:
@@ -355,7 +368,7 @@ class BackendRuntime:
             current = self.preview_proc
             if current is not None and getattr(current, "poll", lambda: None)() is None:
                 return
-            ffmpeg = find_ffmpeg() or ""
+            ffmpeg = self._find_ffmpeg() or ""
             if not ffmpeg:
                 raise RuntimeError("FFmpeg not found for preview")
             cmd = self.prepare_preview_cmd(ffmpeg)
@@ -363,7 +376,7 @@ class BackendRuntime:
             self.preview_worker = threading.Thread(target=self.preview_reader, daemon=True)
             self.preview_worker.start()
 
-    def stop_preview(self, wait: bool = False):
+    def stop_preview_process(self, wait: bool = False):
         with self.preview_lock:
             proc = self.preview_proc
             if proc is None:
@@ -372,23 +385,25 @@ class BackendRuntime:
             self.preview_proc = None
             self.preview_worker = None
 
-    def iter_preview_mjpeg_chunks(self):
-        while True:
-            if self.preview_enabled and not self.capture_state.capture_running and self.preview_proc is None:
-                self.ensure_preview_running()
-            frame = self.latest_preview_frame
-            if frame:
-                jpeg_payload = self.preview_frame_to_jpeg(frame)
-                if jpeg_payload is None:
-                    time.sleep(1.0 / PREVIEW_FPS)
-                    continue
-                yield (
-                    b"--frame\r\n"
-                    b"Content-Type: image/jpeg\r\n\r\n"
-                    + jpeg_payload
-                    + b"\r\n"
-                )
-            time.sleep(1.0 / PREVIEW_FPS)
+    def stop_preview(self, wait: bool = True) -> ActionResult:
+        if self.capture_state.capture_running:
+            raise RuntimeError("Cannot stop preview while capture is running")
+        self.preview_enabled = False
+        self.stop_preview_process(wait=wait)
+        self.append_event("preview", "Preview stopped.")
+        self.refresh_monitor_payload(status_override="Preview stopped.")
+        return ActionResult(ok=True, message="Preview stopped.", config=self.load_config(), snapshot=self.snapshot())
+
+    def start_preview(self) -> ActionResult:
+        self.preview_enabled = True
+        if not self.capture_state.capture_running:
+            self.ensure_preview_running()
+        self.append_event("preview", "Preview started.")
+        self.refresh_monitor_payload(status_override="Preview started.")
+        return ActionResult(ok=True, message="Preview started.", config=self.load_config(), snapshot=self.snapshot())
+
+    def get_preview_frame(self) -> bytes | None:
+        return self.latest_preview_frame
 
     def build_direct_cmd(self, ffmpeg: str):
         assert self.capture_context.current_frames_dir is not None
@@ -553,18 +568,6 @@ class BackendRuntime:
             queue_factory=queue.Queue,
         )
 
-    def start_capture(self, request: StartCaptureRequest):
-        return start_runtime_capture(self, request, thread_factory=threading.Thread)
-
-    def stop_capture(self):
-        return stop_runtime_capture(self, request_stop_process_fn=request_stop_process)
-
-    def preview_status_text(self) -> str:
-        return runtime_preview_status_text(self)
-
-    def ui_locks(self) -> dict:
-        return runtime_ui_locks(self)
-
     def refresh_monitor_payload(self, status_override: str | None = None):
         refresh_runtime_monitor_payload(
             self,
@@ -580,133 +583,139 @@ class BackendRuntime:
             cpu_percent_fn=psutil.cpu_percent,
         )
 
-    def build_monitor_payload(self):
-        return build_runtime_monitor_payload(self, width=WIDTH, height=HEIGHT)
+    def preview_status_text(self) -> str:
+        return runtime_preview_status_text(self)
 
-    def snapshot(self):
-        return snapshot_runtime_monitor(self)
+    def build_monitor_payload(self):
+        self.last_monitor_payload = {
+            "running": False,
+            "capture_phase": self.capture_phase_payload(),
+            "runtime_seconds": 0,
+            "fps": 0.0,
+            "cpu_percent": 0.0,
+            "processed_frames": 0,
+            "acceleration": "Idle",
+            "bitrate_mbps": 0.0,
+            "resolution": f"{WIDTH}x{HEIGHT}",
+            "status_text": self.idle_status_text(),
+            "capture_last_error": self.capture_last_error,
+            "capture_last_error_reason": self.capture_last_error_reason,
+            "capture_last_error_code": self.capture_last_error_code,
+            "capture_last_session_dir": self.capture_last_session_dir,
+            "preview_enabled": self.preview_enabled,
+            "preview_active": self.preview_proc is not None and getattr(self.preview_proc, "poll", lambda: None)() is None,
+            "preview_status": self.preview_status_text(),
+            "ui_locks": runtime_ui_locks(self),
+            "events": self.recent_events(),
+            "timestamp": datetime.now().isoformat(timespec="seconds"),
+            "config": self.load_config(),
+        }
+        return self.last_monitor_payload
+
+    def snapshot(self) -> RuntimeSnapshot:
+        return self._to_snapshot(snapshot_runtime_monitor(self))
+
+    def update_config(self, patch: RuntimeConfigPatch) -> ActionResult:
+        with self.control_lock:
+            if self.capture_state.capture_running:
+                raise RuntimeError("Cannot update config while capture is running")
+            next_mode = patch.mode if patch.mode is not None else self.mode
+            next_quality_mode = patch.quality_mode if patch.quality_mode is not None else self.quality_mode
+            self.validate_runtime_options(next_mode, next_quality_mode)
+            self.apply_config_update(patch)
+            self.refresh_monitor_payload()
+            return ActionResult(ok=True, message="Runtime config saved.", config=self.load_config(), snapshot=self.snapshot())
+
+    def select_output_dir(self) -> ActionResult:
+        if self.capture_state.capture_running:
+            raise RuntimeError("Cannot select output dir while capture is running")
+        if self._directory_selector is None:
+            raise RuntimeError("Output directory selector is not configured")
+        selected_dir = self._directory_selector(str(self.output_dir or self.base_dir))
+        if not selected_dir:
+            self.append_event("system", "Output directory selection cancelled.")
+            return ActionResult(ok=False, message="Output directory selection cancelled.", config=self.load_config(), snapshot=self.snapshot())
+        self.output_dir = Path(selected_dir)
+        self.append_event("system", f"Output directory updated: {selected_dir}")
+        self.refresh_monitor_payload(status_override="Output directory updated.")
+        return ActionResult(
+            ok=True,
+            message="Output directory updated.",
+            selected_dir=selected_dir,
+            config=self.load_config(),
+            snapshot=self.snapshot(),
+        )
+
+    def open_output_dir(self) -> ActionResult:
+        target = self.output_dir or self.base_dir
+        target.mkdir(parents=True, exist_ok=True)
+        if os.name != "nt":
+            raise RuntimeError("open_output_dir currently only supports Windows")
+        os.startfile(str(target))  # type: ignore[attr-defined]
+        self.append_event("system", f"Opened output directory: {target}")
+        return ActionResult(ok=True, message="Opened output directory.", selected_dir=str(target), config=self.load_config(), snapshot=self.snapshot())
+
+    def load_camera_devices(self) -> ActionResult:
+        ffmpeg = self.ffmpeg_path or self._find_ffmpeg() or ""
+        self.ffmpeg_path = ffmpeg
+        devices: list[str] = []
+        if ffmpeg:
+            try:
+                cmd = [
+                    ffmpeg,
+                    "-hide_banner",
+                    "-list_devices",
+                    "true",
+                    "-f",
+                    "dshow",
+                    "-i",
+                    "dummy",
+                ]
+                proc = subprocess.run(
+                    cmd,
+                    capture_output=True,
+                    text=True,
+                    encoding="utf-8",
+                    errors="replace",
+                    **windows_popen_kwargs(),
+                )
+                text = f"{proc.stdout}\n{proc.stderr}"
+                for line in text.splitlines():
+                    if '"' not in line:
+                        continue
+                    quoted = line.split('"')
+                    if len(quoted) < 2:
+                        continue
+                    name = quoted[1].strip()
+                    if name and name not in devices and "Alternative name" not in line:
+                        devices.append(name)
+            except Exception:
+                devices = []
+        return ActionResult(ok=True, message="Camera devices loaded.", devices=devices, config=self.load_config(), snapshot=self.snapshot())
+
+    def start_capture(self, request: StartCaptureRequest) -> ActionResult:
+        self.validate_runtime_options(request.mode, request.quality_mode)
+        payload = start_runtime_capture(self, request, thread_factory=self._thread_factory)
+        return ActionResult(
+            ok=bool(payload.get("ok")),
+            message=str(payload.get("status_text", "")),
+            config=self.load_config(),
+            snapshot=self._snapshot_from_action_payload(payload),
+        )
+
+    def stop_capture(self) -> ActionResult:
+        payload = stop_runtime_capture(self, request_stop_process_fn=request_stop_process)
+        return ActionResult(
+            ok=bool(payload.get("ok")),
+            message=str(payload.get("status_text", "")),
+            config=self.load_config(),
+            snapshot=self._snapshot_from_action_payload(payload),
+        )
 
 
 class DummyStatusSetter:
-    def __init__(self, runtime: BackendRuntime):
+    def __init__(self, runtime: RuntimeController):
         self.runtime = runtime
 
     def set(self, value: str):
         self.runtime.refresh_monitor_payload(status_override=value)
-
-
-runtime_state = BackendRuntime(base_dir=Path(app_base_dir()))
-webview_window = None
-
-
-def validate_runtime_options(mode: str, quality_mode: str):
-    if mode not in {"direct_frames", "video_then_frames"}:
-        raise HTTPException(status_code=400, detail="Unsupported mode")
-    if quality_mode not in {"copy", "q2"}:
-        raise HTTPException(status_code=400, detail="Unsupported quality_mode")
-
-
-def open_directory_dialog(current_dir: str | None = None) -> str | None:
-    return select_output_directory(
-        webview_window=webview_window,
-        current_dir=current_dir,
-        fallback_dir=str(runtime_state.output_dir or runtime_state.base_dir),
-    )
-
-
-def require_window():
-    return require_runtime_window(webview_window)
-
-
-def open_system_path(path: str):
-    open_path_in_system(path)
-
-
-def list_camera_devices(ffmpeg_path: str | None) -> list[str]:
-    return query_camera_devices(ffmpeg_path, popen_kwargs=windows_popen_kwargs)
-
-
-def append_runtime_log(path: Path, message: str):
-    write_runtime_log(path, message)
-
-
-def resolve_frontend_target(frontend_dir: Path = FRONTEND_DIST_DIR, dev_url: str = FRONTEND_DEV_URL) -> str:
-    return resolve_frontend_runtime_target(frontend_dir, dev_url)
-
-
-def create_app() -> FastAPI:
-    return create_runtime_app(
-        runtime_state=runtime_state,
-        config=RuntimeApiConfig(
-            title="USB Cam 4K25 Demo Backend",
-            api_host=API_HOST,
-            api_port=API_PORT,
-            cors_origins=("http://localhost:5173", "http://127.0.0.1:5173"),
-            mjpeg_path=MJPEG_PATH,
-            ws_path=WS_PATH,
-            control_start_path=CONTROL_START_PATH,
-            control_stop_path=CONTROL_STOP_PATH,
-            config_path=CONFIG_PATH,
-            select_output_dir_path=SELECT_OUTPUT_DIR_PATH,
-            window_minimize_path=WINDOW_MINIMIZE_PATH,
-            window_toggle_maximize_path=WINDOW_TOGGLE_MAXIMIZE_PATH,
-            window_close_path=WINDOW_CLOSE_PATH,
-            open_output_dir_path=OPEN_OUTPUT_DIR_PATH,
-            ffmpeg_status_path=FFMPEG_STATUS_PATH,
-            preview_start_path=PREVIEW_START_PATH,
-            preview_stop_path=PREVIEW_STOP_PATH,
-            events_path=EVENTS_PATH,
-            camera_devices_path=CAMERA_DEVICES_PATH,
-            monitor_path=MONITOR_PATH,
-            open_directory_dialog=lambda current_dir: open_directory_dialog(current_dir),
-            require_window=lambda: require_window(),
-            open_system_path=lambda path: open_system_path(path),
-            list_camera_devices=lambda ffmpeg_path: list_camera_devices(ffmpeg_path),
-            resolve_ffmpeg_path=lambda: find_ffmpeg() or "",
-            validate_runtime_options=lambda mode, quality_mode: validate_runtime_options(mode, quality_mode),
-        ),
-    )
-
-
-def run_api_server(app: FastAPI):
-    serve_runtime_api(app, host=API_HOST, port=API_PORT)
-
-
-def wait_for_frontend_ready(url: str, timeout_seconds: float = 30.0):
-    wait_for_frontend_runtime(url, timeout_seconds=timeout_seconds)
-
-
-def resolve_webview_debug_mode() -> bool:
-    return read_webview_debug_mode(os.environ.get("USB_CAM_WEBVIEW_DEBUG"))
-
-
-def main():
-    import webview
-
-    global webview_window
-
-    append_runtime_log(RUNTIME_LOG_PATH, "desktop entry started")
-    app = create_app()
-    api_thread = threading.Thread(target=run_api_server, args=(app,), daemon=True)
-    api_thread.start()
-    append_runtime_log(RUNTIME_LOG_PATH, "uvicorn thread launched")
-
-    frontend_target = resolve_frontend_target()
-    append_runtime_log(RUNTIME_LOG_PATH, f"frontend target resolved: {frontend_target}")
-    if frontend_target.startswith("http://") or frontend_target.startswith("https://"):
-        wait_for_frontend_ready(frontend_target)
-        append_runtime_log(RUNTIME_LOG_PATH, "frontend dev server reachable")
-
-    webview_window = webview.create_window(
-        "USB Cam 4K25",
-        frontend_target,
-        width=1440,
-        height=920,
-        resizable=True,
-    )
-    append_runtime_log(RUNTIME_LOG_PATH, "pywebview window created")
-    webview.start(debug=resolve_webview_debug_mode())
-
-
-if __name__ == "__main__":
-    main()

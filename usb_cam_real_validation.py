@@ -10,8 +10,8 @@ import time
 from pathlib import Path
 
 import psutil
-import requests
 
+from desktop.automation import run_desktop_automation
 from usb_cam_capture import build_direct_cmd, build_extract_cmd, build_record_cmd
 from usb_cam_preview import build_preview_cmd, read_preview_frames, start_preview_process, stop_preview_process
 from usb_cam_process import parse_ffmpeg_progress_line, request_stop_process, run_ffmpeg_process
@@ -180,30 +180,24 @@ def read_packaged_window_title(pid: int) -> str:
         return ""
 
 
-def packaged_runtime_smoke(*, exe_path: Path, api_base_url: str, startup_seconds: float = 8.0) -> dict:
+def packaged_runtime_smoke(*, exe_path: Path, startup_seconds: float = 8.0) -> dict:
     return packaged_runtime_smoke_impl(
         exe_path=exe_path,
-        api_base_url=api_base_url,
         startup_seconds=startup_seconds,
-        launch_packaged_runtime_fn=launch_packaged_runtime,
-        requests_get=requests.get,
-        terminate_packaged_runtime_fn=terminate_packaged_runtime,
-        wait_for_capture_process_conflicts_to_clear_fn=wait_for_capture_process_conflicts_to_clear,
+        run_desktop_automation_fn=run_desktop_automation,
     )
 
 
 def run_packaged_runtime_smoke_validation(
-    *, exe_path: Path, api_base_url: str, report_path: Path | None = None
+    *, exe_path: Path, report_path: Path | None = None
 ) -> dict:
     result = packaged_runtime_smoke(
         exe_path=exe_path,
-        api_base_url=api_base_url,
     )
     if report_path is None:
         report_path = packaged_report_paths()["smoke"]
     wrapped = {
         "exe_path": str(exe_path),
-        "api_base_url": api_base_url,
         "packaged_runtime_smoke": result,
     }
     write_validation_report(report_path, wrapped)
@@ -294,46 +288,39 @@ def collect_finalized_session_artifacts(
 
 
 def collect_terminal_monitor_state(
-    api_base_url: str,
+    exe_path: Path,
     *,
     retries: int = 10,
     delay_seconds: float = 1.0,
 ) -> dict:
     return collect_terminal_monitor_state_impl(
-        api_base_url,
+        exe_path,
         retries=retries,
         delay_seconds=delay_seconds,
-        requests_get=requests.get,
+        run_desktop_automation_fn=run_desktop_automation,
         sleep_fn=time.sleep,
     )
 
 
-def packaged_release_validation(*, exe_path: Path, api_base_url: str, output_root: Path, camera_name: str) -> dict:
+def packaged_release_validation(*, exe_path: Path, output_root: Path, camera_name: str) -> dict:
     return packaged_release_validation_impl(
         exe_path=exe_path,
-        api_base_url=api_base_url,
         output_root=output_root,
         camera_name=camera_name,
-        launch_packaged_runtime_fn=launch_packaged_runtime,
-        requests_get=requests.get,
-        requests_post=requests.post,
-        terminate_packaged_runtime_fn=terminate_packaged_runtime,
+        run_desktop_automation_fn=run_desktop_automation,
         collect_finalized_session_artifacts_fn=collect_finalized_session_artifacts,
-        collect_terminal_monitor_state_fn=collect_terminal_monitor_state,
     )
 
 
 def run_packaged_release_validation(
     *,
     exe_path: Path,
-    api_base_url: str,
     output_root: Path,
     report_path: Path | None = None,
     camera_name: str = DEFAULT_CAMERA_NAME,
 ) -> dict:
     result = packaged_release_validation(
         exe_path=exe_path,
-        api_base_url=api_base_url,
         output_root=output_root,
         camera_name=camera_name,
     )
@@ -341,7 +328,6 @@ def run_packaged_release_validation(
         report_path = packaged_report_paths()["release"]
     wrapped = {
         "exe_path": str(exe_path),
-        "api_base_url": api_base_url,
         "output_root": str(output_root),
         "packaged_release_validation": result,
     }
@@ -351,15 +337,13 @@ def run_packaged_release_validation(
 
 
 def packaged_validation_summary(
-    *, exe_path: Path, api_base_url: str, output_root: Path, camera_name: str = DEFAULT_CAMERA_NAME
+    *, exe_path: Path, output_root: Path, camera_name: str = DEFAULT_CAMERA_NAME
 ) -> dict:
     smoke = packaged_runtime_smoke(
         exe_path=exe_path,
-        api_base_url=api_base_url,
     )
     release = packaged_release_validation(
         exe_path=exe_path,
-        api_base_url=api_base_url,
         output_root=output_root,
         camera_name=camera_name,
     )
@@ -373,14 +357,12 @@ def packaged_validation_summary(
 def run_packaged_validation_summary(
     *,
     exe_path: Path,
-    api_base_url: str,
     output_root: Path,
     report_path: Path | None = None,
     camera_name: str = DEFAULT_CAMERA_NAME,
 ) -> dict:
     return run_packaged_validation_summary_impl(
         exe_path=exe_path,
-        api_base_url=api_base_url,
         output_root=output_root,
         report_path=report_path,
         camera_name=camera_name,
@@ -741,7 +723,6 @@ def main() -> int:
     parser.add_argument("--packaged-release-validation-only", action="store_true")
     parser.add_argument("--packaged-validation-summary-only", action="store_true")
     parser.add_argument("--exe-path", default=None)
-    parser.add_argument("--api-base-url", default="http://127.0.0.1:8000")
     parser.add_argument("--report-path", default=None)
     args = parser.parse_args()
     packaged_validation_mode = (
@@ -758,7 +739,6 @@ def main() -> int:
             raise SystemExit("--packaged-runtime-smoke-only requires --exe-path")
         result = run_packaged_runtime_smoke_validation(
             exe_path=Path(args.exe_path),
-            api_base_url=args.api_base_url,
             report_path=Path(args.report_path) if args.report_path else None,
         )
     elif args.packaged_validation_summary_only:
@@ -766,7 +746,6 @@ def main() -> int:
             raise SystemExit("--packaged-validation-summary-only requires --exe-path")
         result = run_packaged_validation_summary(
             exe_path=Path(args.exe_path),
-            api_base_url=args.api_base_url,
             output_root=Path(args.output_root),
             report_path=Path(args.report_path) if args.report_path else None,
             camera_name=args.camera_name,
@@ -776,7 +755,6 @@ def main() -> int:
             raise SystemExit("--packaged-release-validation-only requires --exe-path")
         result = run_packaged_release_validation(
             exe_path=Path(args.exe_path),
-            api_base_url=args.api_base_url,
             output_root=Path(args.output_root),
             report_path=Path(args.report_path) if args.report_path else None,
             camera_name=args.camera_name,

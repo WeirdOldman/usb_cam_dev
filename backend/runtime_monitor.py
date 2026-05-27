@@ -68,42 +68,6 @@ def ui_locks(runtime: Any) -> dict:
     }
 
 
-def build_control_config(
-    runtime: Any,
-    *,
-    api_host: str,
-    api_port: int,
-    frontend_dev_url: str,
-    mjpeg_path: str,
-    ws_path: str,
-    control_start_path: str,
-    control_stop_path: str,
-    preview_start_path: str,
-    preview_stop_path: str,
-    auto_stop_prefs_fn: Callable[[], dict],
-) -> dict:
-    api_base_url = f"http://{api_host}:{api_port}"
-    return {
-        "camera_name": runtime.camera_name,
-        "output_dir": str(runtime.output_dir),
-        "image_prefix": runtime.image_prefix,
-        "mode": runtime.mode,
-        "quality_mode": runtime.quality_mode,
-        "delete_video_after_extract": runtime.delete_video_after_extract,
-        "ffmpeg_path": runtime.ffmpeg_path or "",
-        "base_dir": str(runtime.base_dir),
-        "frontend_dev_url": frontend_dev_url,
-        "api_base_url": api_base_url,
-        "mjpeg_url": f"{api_base_url}{mjpeg_path}",
-        "websocket_url": f"ws://{api_host}:{api_port}{ws_path}",
-        "control_start_url": f"{api_base_url}{control_start_path}",
-        "control_stop_url": f"{api_base_url}{control_stop_path}",
-        "preview_start_url": f"{api_base_url}{preview_start_path}",
-        "preview_stop_url": f"{api_base_url}{preview_stop_path}",
-        "auto_stop": auto_stop_prefs_fn(),
-    }
-
-
 def build_monitor_payload(
     runtime: Any,
     *,

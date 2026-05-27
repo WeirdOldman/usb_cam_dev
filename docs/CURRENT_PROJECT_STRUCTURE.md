@@ -4,29 +4,37 @@
 
 当前默认桌面主线已经固定为：
 
-- `PyWebView + FastAPI + React + FFmpeg DirectShow`
-- 默认桌面入口：`backend/main.py`
-- 前端源码目录：`ui/`
-- 前端打包输出目录：`ui_dist/`
+- `PySide6 + RuntimeController + FFmpeg DirectShow`
+- 默认桌面入口：`desktop/main.py`
+- 控制层 owner：`controller/runtime_controller.py`
 - 正式包构建入口：`build.bat`
-- 前端静态资源构建入口：`build_webview.bat`
 
-这个仓库当前已经不再以 Tk 单文件入口作为默认运行或验证口径。
+这个仓库当前已经不再把 `PyWebView + FastAPI + React` 视为有效运行主线。
 
 ## 版本库中应保留的核心源码
 
-### 后端入口
+### 桌面入口
 
-- `backend/main.py`
-  - PyWebView 窗口创建
-  - FastAPI 路由
-  - WebSocket 监控推送
-  - 预览 / 采集控制 API
+- `desktop/main.py`
+  - PySide6 主窗口
+  - 预览区、控制区、路径/设置区
+  - 桌面自动化 CLI 入口
+
+- `desktop/automation.py`
+  - packaged runtime 自动化驱动 helper
+
+### 控制层
+
+- `controller/contracts.py`
+  - 运行时 dataclass contract
+
+- `controller/runtime_controller.py`
+  - 配置、预览、采集、快照、事件与错误 owner
 
 ### Python 采集与运行时模块
 
 - `usb_cam_capture.py`
-  - 采集 / 录制 / 拆帧命令拼装
+  - 采集 / 录制 / 拆帧命令构建
 - `usb_cam_capture_context.py`
   - 当前会话上下文
 - `usb_cam_capture_helpers.py`
@@ -34,17 +42,17 @@
 - `usb_cam_capture_state.py`
   - 采集状态缓存
 - `usb_cam_ffmpeg.py`
-  - FFmpeg 命令辅助函数
+  - FFmpeg 命令辅助
 - `usb_cam_paths.py`
   - 路径与文件名辅助
 - `usb_cam_preview.py`
-  - 预览命令与预览进程控制
+  - 预览命令、帧解析与预览进程控制
 - `usb_cam_process.py`
   - FFmpeg 进程执行、停止与进度解析
 - `usb_cam_runtime.py`
   - 两种采集模式的运行时编排
 - `usb_cam_session_finalize.py`
-  - 会话收尾与产物补写
+  - 会话收尾与产物补全
 - `usb_cam_session_writer.py`
   - `metadata.json` / `summary.txt` / `frames.csv`
 - `usb_cam_stats.py`
@@ -52,35 +60,26 @@
 - `usb_cam_stop_prefs.py`
   - AutoStop 默认策略
 - `usb_cam_ui_state.py`
-  - UI 指标与 UI action 翻译
+  - 运行时指标与状态计算
 - `usb_cam_real_validation.py`
-  - 正式包 smoke / release / summary 验证
-
-### 前端源码
-
-- `ui/src/main.tsx`
-  - 前端启动入口
-- `ui/src/app/App.tsx`
-  - 应用壳
-- `ui/src/app/components/WinTitleBar.tsx`
-  - 窗口标题栏
-- `ui/src/app/components/MonitoringInterface.tsx`
-  - 主界面装配
-- `ui/src/app/components/monitoring/`
-  - 当前监控页的实际组件与运行时 hook
-
-前端模板残留目录 `ui/src/app/components/ui/` 与 `ui/src/app/components/figma/` 已清理，不再属于当前项目结构。
+  - 正式包 smoke / release / summary 验证入口
+- `usb_cam_validation_capture.py`
+  - capture / autostop 验证 owner
+- `usb_cam_validation_packaged.py`
+  - packaged runtime 验证 owner
+- `usb_cam_validation_reports.py`
+  - report / manifest / history / checklist owner
 
 ## 当前测试入口
 
 - `test_build_packaging.py`
-  - 打包脚本、前端结构与关键文档约束
-- `test_backend_main.py`
-  - FastAPI / PyWebView 主入口契约
+  - 打包脚本、依赖、工作流与退役约束
+- `test_runtime_controller.py`
+  - 控制层 contract 与动作逻辑
+- `test_desktop_main.py`
+  - PySide6 主窗口与桌面自动化入口
 - `test_usb_cam_real_validation.py`
-  - 正式包验证逻辑
-- `ui/src/app/components/monitoring/monitorRuntimeState.test.mjs`
-  - 前端运行时文本与状态归一化
+  - 正式包与真实验证逻辑
 
 ## 当前权威文档
 
@@ -91,23 +90,21 @@
 - `docs/USB_CAM_PROJECT_HANDOFF.md`
   - 当前接力上下文
 - `docs/USB_CAM_STABILITY_POLICY.md`
-  - 当前稳定性与 AutoStop 策略
+  - 当前稳定性与验证边界
 - `docs/USB_CAM_PACKAGED_RUNTIME_PLAYBOOK.md`
-  - 当前 packaged runtime 操作口径
+  - packaged runtime 操作口径
 - `docs/requirements/WEBVIEW_PACKAGED_RUNTIME_QUICKSTART.md`
   - packaged runtime 快速验证口径
 - `docs/requirements/WEBVIEW_PACKAGED_RUNTIME_FINAL_VALIDATION_2026-05-26.md`
-  - 最新正式包验证结论
+  - 最新正式包验证记录
 
 ## 本地依赖边界
 
 `tools/` 目录属于本地运行依赖边界。
-
 当前约束：
 
 - `tools/` 用于放本地 `ffmpeg.exe`
 - 它不受版本控制
-- 它可以按机器环境单独准备
 - 它不是源码 owner，也不应被当作仓库内长期演进的代码结构
 
 ## 不应提交的生成物
@@ -116,8 +113,6 @@
 
 - `build/`
 - `dist/`
-- `ui_dist/`
-- `ui/dist/`
 - `capture_output/`
 - `outputs/`
 - `_validation/`
